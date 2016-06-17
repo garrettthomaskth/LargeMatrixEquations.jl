@@ -1,4 +1,9 @@
-cd("/Users/garrettthomas/matrixEqs")
+######################################
+# Script to test kpikSimp
+# Based on example_kpik.m in the Davide folder
+######################################
+
+#cd("/Users/garrettthomas/matrixEqs")
 include("kpikSimp.jl")
 nh = 3
 n = nh^2
