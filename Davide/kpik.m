@@ -83,6 +83,8 @@ rhs1=UA\(LA\rhs);
 % Orthogonalize [B,A^{-1}B] with an economy-size QR
 [U(1:n,1:s),beta]=qr([rhs,rhs1],0);
 
+U(1:n,1:s)
+
 ibeta=inv(beta(1:s,1:s));
 beta = beta(1:sh,1:sh); 
 beta2=beta*beta';    
@@ -116,7 +118,10 @@ for j=1:m,
     
     % now the new basis block is orthogonal wrt the previous ones, but its
     % columns are not orthogonal wrt each other --> economy-size QR
+    Up
     [Up,H(js1:j1s,jms:js)] = qr(Up,0);
+    Up
+    H(js1:j1s,jms:js)
     hinv=inv(H(js1:j1s,jms:js));
   
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -139,19 +144,24 @@ for j=1:m,
     L(1:j*s+s,j*sh+1:(j+1)*sh) = ...
        ( I(1:j*s+s,(js-sh+1):js)- T(1:js+s,1:js)*H(1:js,js-sh+1:js))*hinv(sh+1:s,sh+1:s);
     rho = hinv(1:sh,1:sh)\hinv(1:sh,sh+1:s);
+    
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % Solve the projected problem by Bartels-Stewart 
     % Do "type lyap" from command window if interested
     k=j;
+    %(T(1:js,1:js))
+    %eye(k*s,sh)*beta2*eye(k*s,sh)'
     Y = lyap((T(1:js,1:js)),eye(k*s,sh)*beta2*eye(k*s,sh)');
-
+    
     % safeguard to preserve symmetry
     Y = (Y+Y')/2;
 
     % Compute the residual norm. See the article by Valeria
     cc = [H(js1:j1s,js-s+1:js-sh), L(js1:j1s,(j-1)*sh+1:j*sh)];
+    
+    
     er2(k)=sqrt2*norm(cc*Y(js-s+1:js,:),'fro')/nrmb;
 
     fprintf('It: %d, Current relative residual norm: %10.5e \n',k,er2(k))
@@ -160,6 +170,7 @@ for j=1:m,
      break
   else
      U(1:n,js1:j1s)=Up;
+
   end
 end
 
