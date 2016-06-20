@@ -4,6 +4,7 @@
 # SIAM J.  Scient. Computing, v.29, n.3 (2007), pp. 1268-1288.
 # Davide's Edit: doesn't manage the solution of a generalized Lyapunov equation
 function kpikSimp(A,B,m,tol,tolY)
+  tic()
   rhs=B
   nrmb=vecnorm(rhs)^2
   sqrt2=sqrt(2)
@@ -13,7 +14,7 @@ function kpikSimp(A,B,m,tol,tolY)
   Y=[]
   odds=[]
   er2=[]
-  rho = 0
+  global rho, js, j
   # factorize A just once
   if norm(A-A',1)<1e-14
      UA = chol(-A)
@@ -22,7 +23,7 @@ function kpikSimp(A,B,m,tol,tolY)
      k_max =2
    else
      LA, UA=lu(A)
-     fprintf("A nonsym. Completed LU factorization\n")
+     println("A nonsym. Completed LU factorization\n")
      k_max = m
    end
    s=2*sh
@@ -155,4 +156,27 @@ function kpikSimp(A,B,m,tol,tolY)
         #print("\n \n")
       end
     end
+    # Done
+    # reduce solution rank if needed
+    sY,uY=eig(Y)
+    # !!!!!!!!!!! sort returns different than matlab
+    sY=sort(sY)
+    id=sortperm(sY)
+    sY=flipud(sY)
+    uY=uY[:,id[end:-1:1]]
+    is = 0
+    for ii in 1:size(sY)[1]
+      if abs(sY[ii])>tolY
+        is = is+1
+      end
+    end
+
+    Y0 = uY[:,1:is]*diagm(sqrt(sY[1:is]))
+    Z = U[1:n,1:js]*Y0
+
+    er2=er2[1:j]
+
+    total_time=toq()
+    println("************* \n AT CONVERGENCE \n")
+    @printf("Its: %d, Computed res: %10.5e, Space dim: %d, CPU Time: %10.5e\n",j,er2[j],js,total_time)
 end

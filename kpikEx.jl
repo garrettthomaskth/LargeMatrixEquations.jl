@@ -3,9 +3,9 @@
 # Based on example_kpik.m in the Davide folder
 ######################################
 
-#cd("/Users/garrettthomas/matrixEqs")
+cd("/Users/garrettthomas/matrixEqs")
 include("kpikSimp.jl")
-nh = 3
+nh = 10
 n = nh^2
 # Create the Matrix T (find a more sophisticated way to do this)
 T = zeros(nh,nh)

@@ -83,8 +83,6 @@ rhs1=UA\(LA\rhs);
 % Orthogonalize [B,A^{-1}B] with an economy-size QR
 [U(1:n,1:s),beta]=qr([rhs,rhs1],0);
 
-U(1:n,1:s)
-
 ibeta=inv(beta(1:s,1:s));
 beta = beta(1:sh,1:sh); 
 beta2=beta*beta';    
@@ -118,10 +116,7 @@ for j=1:m,
     
     % now the new basis block is orthogonal wrt the previous ones, but its
     % columns are not orthogonal wrt each other --> economy-size QR
-    Up
     [Up,H(js1:j1s,jms:js)] = qr(Up,0);
-    Up
-    H(js1:j1s,jms:js)
     hinv=inv(H(js1:j1s,jms:js));
   
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,8 +1,8 @@
-%close all
-%clear all
-%clc
+close all
+clear all
+clc
 
-nh=3;
+nh=10;
 n=nh^2;
 T=diag(2*ones(nh,1))+diag(-ones(nh-1,1),1)+diag(-ones(nh-1,1),-1);
 I=speye(nh);
