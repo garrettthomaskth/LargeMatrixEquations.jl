@@ -162,7 +162,7 @@ function kpikSimp(A,B,m,tol,tolY)
     # !!!!!!!!!!! sort returns different than matlab
     sY=sort(sY)
     id=sortperm(sY)
-    sY=flipud(sY)
+    sY=flipdim(sY,1)
     uY=uY[:,id[end:-1:1]]
     is = 0
     for ii in 1:size(sY)[1]
