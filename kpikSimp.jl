@@ -4,6 +4,7 @@
 # SIAM J.  Scient. Computing, v.29, n.3 (2007), pp. 1268-1288.
 # Davide's Edit: doesn't manage the solution of a generalized Lyapunov equation
 function kpikSimp(A,B,m,tol,tolY)
+  @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
   tic()
   rhs=B
   nrmb=vecnorm(rhs)^2
