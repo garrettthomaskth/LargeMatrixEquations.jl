@@ -3,8 +3,9 @@
 # Based on example_kpik.m in the Davide folder
 ######################################
 
-cd("/Users/garrettthomas/matrixEqs")
+# cd("/Users/garrettthomas/matrixEqs")
 include("kpikSimp.jl")
+using Base;
 nh = 10
 n = nh^2
 # Create the Matrix T (find a more sophisticated way to do this)
@@ -20,6 +21,7 @@ for i in 2:(nh-1)
 end
 I = eye(nh,nh)
 A = -(kron(T,I)+kron(I,T))
+srand(1234)
 B = randn(n,1)
 #B = Float64(n,1)
 #for i = 1:n
