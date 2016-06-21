@@ -2,21 +2,30 @@
 # V. Simoncini
 # A new iterative method for solving large-scale Lyapunov matrix equations,
 # SIAM J.  Scient. Computing, v.29, n.3 (2007), pp. 1268-1288.
-# Davide's Edit: doesn't manage the solution of a generalized Lyapunov equation
-function kpikSimp(A,B,m,tol,tolY)
-  @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
-  tic()
-  rhs=B
-  nrmb=vecnorm(rhs)^2
-  sqrt2=sqrt(2)
-  er2=zeros(m,1)
 
-  n,sh=size(rhs)
+function kpikFull(A,E,LE,B,m,tol,tolY)
+  @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
+  tic();
+
+  rhs=LE\B;
+  nrmb=vecnorm(rhs)^2;
+  nrma=vecnorm(A);
+  sqrt2=sqrt(2);
+  er2=zeros(m,1);
+
+  n,sh=size(rhs);
+
   Y=[]
   odds=[]
   er2=[]
-  global rho, js, j
-  # factorize A just once
+
+  if (vecnorm(E-speye(n))>1e-14)
+    condestE=cond(E);
+    singE=condestE/vecnorm(E);
+  else
+    singE=1;
+  end
+
   if norm(A-A',1)<1e-14
      UA = chol(-A)
      LA = -UA'
@@ -27,10 +36,9 @@ function kpikSimp(A,B,m,tol,tolY)
      println("A nonsym. Completed LU factorization\n")
      k_max = m
    end
-   s=2*sh
 
-   #Solve with A: rhs1=A^{-1}B
-   rhs1=UA\(LA\rhs)
+   s=2*sh;
+   rhs1=LE'*(UA\(LA\(LE*rhs)));
 
    # Orthogonalize [B,A^{-1}B] with an economy-size QR
    srf = size(rhs)[1]
@@ -39,21 +47,19 @@ function kpikSimp(A,B,m,tol,tolY)
    rr = zeros(srf,srs+sr1s)
    rr[1:srf,1:srs] = rhs
    rr[1:srf,srs+1:srs+sr1s] = rhs1
+   #U,beta,p=qr(rr, Val{true})
+   # Julia qr decomposition is always "economy size"
    U,beta=qr(rr)
-   #U = U[1:n,1:s]
 
 
-
-
-   ibeta=inv(beta[1:s,1:s])
-   beta = beta[1:sh,1:sh]
-   beta2=beta*beta'
-
-   # Preallocate
-   H=zeros((m+1)*s,m*s)
-   T=zeros((m+1)*s,m*s)
-   L=zeros((m+1)*s,m*s)
-
+   ibeta=inv(beta[1:s,1:s]);
+   beta = beta[1:sh,1:sh];
+   beta2=beta*beta';
+   H=zeros((m+1)*s,m*s);
+   T=zeros((m+1)*s,m*s);
+   L=zeros((m+1)*s,m*s);
+   println("      it        backward err\n")
+   global rho, js, j
    for j=1:m
      jms=(j-1)*s+1
      j1s=(j+1)*s
@@ -64,11 +70,10 @@ function kpikSimp(A,B,m,tol,tolY)
      # Expand the basis
      # multiply by A
      Up = zeros(n,s)
-     Up[1:n,1:sh] = A*U[:,jms:jsh]
+     Up[1:n,1:sh] = LE\(A*(LE'\U[:,jms:jsh]))
      # solve with A
 
-     Up[1:n,sh+1:s] = UA\(LA\U[1:n,jsh+1:js])
-
+     Up[1:n,sh+1:s] = LE'*(UA\(LA\(LE*U[1:n,jsh+1:js])))
 
      # orthogonalize the new basis block wrt all the previous ones by modified gram
      for l=1:2
@@ -82,14 +87,11 @@ function kpikSimp(A,B,m,tol,tolY)
         end
       end
 
-      # now the new basis block is orthogonal wrt the previous ones, but its
-      # columns are not orthogonal wrt each other --> economy-size QR
-      #print(Up)
-      #print("\n \n")
-      Up,H[js1:j1s,jms:js] = qr(Up)
-      #print(Up)
-      #print("\n \n")
-      hinv=inv(H[js1:j1s,jms:js])
+      if (j<=m)
+        Up,H[js1:j1s,jms:js] = qr(Up);
+        hinv=inv(H[js1:j1s,jms:js]);
+      end
+
 
       #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       # Recover the columns of T=U'*A*U (projection of A onto the space) from
@@ -100,7 +102,7 @@ function kpikSimp(A,B,m,tol,tolY)
       if (j==1)
         HL = zeros(s+sh,2*sh)
         HL[1:s+sh,1:sh] = H[1:s+sh,1:sh]/ibeta[1:sh,1:sh]
-        HL[1:s+sh,sh+1:2*sh] = speye(s+sh,sh)/ibeta[1:sh,1:sh]
+        HL[1:s+sh,sh+1:2*sh] = eye(s+sh,sh)/ibeta[1:sh,1:sh]
         L[1:j*s+sh,(j-1)*sh+1:j*sh] = HL*ibeta[1:s,sh+1:s];
       else
         L[1:j*s+s,(j-1)*sh+1:j*sh] = L[1:j*s+s,(j-1)*sh+1:j*sh] + H[1:j*s+s,jms:jms-1+sh]*rho;
@@ -136,11 +138,10 @@ function kpikSimp(A,B,m,tol,tolY)
       cc = zeros(j1s-js1+1,s)
       cc[:,1:s-sh]=H[js1:j1s,js-s+1:js-sh]
       cc[:,s-sh+1:s]=L[js1:j1s,(j-1)*sh+1:j*sh]
-      #HL = [H[js1:j1s,js-s+1:js-sh]; L[js1:j1s,(j-1)*sh+1:j*sh]]
-      #d1 = j1s-js1+1
-      #d2 = convert(Int64,size(HL)[1]/d1)
 
-      er2=[er2;sqrt2*vecnorm(cc*Y[js-s+1:js,:])/nrmb]
+      nrmx = vecnorm(Y)
+
+      er2=[er2;sqrt2*vecnorm(cc*Y[js-s+1:js,:])/(nrmb+singE*nrma*nrmx)]
 
       @printf("It: %d, Current relative residual norm: %10.5e \n",k,er2[k])
 
@@ -172,11 +173,14 @@ function kpikSimp(A,B,m,tol,tolY)
     end
 
     Y0 = uY[:,1:is]*diagm(sqrt(sY[1:is]))
-    Z = U[1:n,1:js]*Y0
+    Z = LE'\U[1:n,1:js]*Y0
 
     er2=er2[1:j]
 
     total_time=toq()
-    println("************* \n AT CONVERGENCE \n")
-    @printf("Its: %d, Computed res: %10.5e, Space dim: %d, CPU Time: %10.5e\n",j,er2[j],js,total_time)
+
+    println("   its           comp.res.   space dim.   CPU Time\n")
+    @printf("%10.5e  %10.5e   %10.5e  %10.5e \n",j,er2[j],js,total_time)
+    #println("************* \n AT CONVERGENCE \n")
+    #@printf("Its: %d, Computed res: %10.5e, Space dim: %d, CPU Time: %10.5e\n",j,er2[j],js,total_time)
 end

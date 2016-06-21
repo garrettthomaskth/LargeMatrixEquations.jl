@@ -1,12 +1,11 @@
 ######################################
-# Script to test kpikSimp.jl
+# Script to test kpikFull.jl
 # Based on example_kpik.m in the Davide folder
 ######################################
 
-# cd("/Users/garrettthomas/matrixEqs")
-include("kpikSimp.jl")
-using Base;
-nh = 10
+cd("/Users/garrettthomas/matrixEqs")
+include("kpikFull.jl")
+nh = 30
 n = nh^2
 # Create the Matrix T (find a more sophisticated way to do this)
 T = zeros(nh,nh)
@@ -21,13 +20,10 @@ for i in 2:(nh-1)
 end
 I = eye(nh,nh)
 A = -(kron(T,I)+kron(I,T))
-srand(1234)
-B = randn(n,1)
-#B = Float64(n,1)
-#for i = 1:n
-#  B[i,1]= (i+1)/10
-#end
+B = randn(n,2)
+E = diagm(rand(n),0)
+LE=full(cholfact(E)[:L])
 m=100
 tol=1e-9
 tolY=1e-12
-kpikSimp(A,B,m,tol,tolY)
+kpikFull(A,E,LE,B,m,tol,tolY)
