@@ -1,2 +1,2 @@
 # matrixEqs
-Matrix Equation Methods in Julia
+Numerical Methods for Matrix Equations in Julia
