@@ -228,9 +228,10 @@ end
 
 ###############################################
 #
-#kpikGL function definition
+# kpikGL function definition
 #
 ###############################################
+
 function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
   # Julia code for K-PIK (Krylov-plus-inverted-Krylov)
   # Based on kpik.m avalible from V. Simoncini's website

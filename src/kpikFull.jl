@@ -49,9 +49,6 @@
 #CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-module kpikGL
-
-export kpikFull
 
 function kpikFull(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
   @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
@@ -227,7 +224,5 @@ function kpikFull(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
     #println("************* \n AT CONVERGENCE \n")
     #@printf("Its: #d, Computed res: #10.5e, Space dim: #d, CPU Time: #10.5e\n",j,er2[j],js,total_time)
     return Z, er2
-
-end
 
 end
