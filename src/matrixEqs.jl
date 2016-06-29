@@ -1,6 +1,6 @@
 module matrixEqs
 
-export kpik, kpikGL
+export kpik
 
 
 ###############################################
@@ -9,234 +9,9 @@ export kpik, kpikGL
 #
 ###############################################
 
-
-
-function kpik(A,B,m=100,tol=1e-9,tolY=1e-12)
+function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12)
   # Julia code for K-PIK (Krylov-plus-inverted-Krylov)
   # Based on kpik.m avalible from V. Simoncini's website
-  #
-  # Julia code for K-PIK (Krylov-plus-inverted-Krylov)
-  # to approximately solve
-  #
-  #       A X + X A' + BB' = 0
-  #
-  # by means of the extended Krylov subspace method
-  #
-  # Input
-  #  A   coeff matrix, A < 0
-  #  B   factor of rhs,   nxk matrix with k << n
-  #  m   max space dimension, say sqrt(size(A))
-  #  tol stopping tolerance, with stopping criterion
-  #          || A X + X A' - BB'||
-  #          ---------------------  < tol
-  #                ||BB'||
-  #      computed in a cheap manner
-  #
-  #  Output:
-  #  Z   solution factor   X = Z Z'
-  #  er2 history of scaled residual, as above
-  #
-  #
-  # Comments:
-  # * The projected solution is computed at each iteration
-  #   As an alternative, a periodic computation could be considered.
-  # * This code performs a factorization of A. As an alternative,
-  #   iterative solves could be considered.
-  #
-  #  Please contact V. Simoncini for any problem you may encouter when
-  #  running the code
-  #
-  # If you use this code, please cite the following article:
-  #
-  # V. Simoncini
-  # A new iterative method for solving large-scale Lyapunov matrix equations,
-  # SIAM J.  Scient. Computing, v.29, n.3 (2007), pp. 1268-1288.
-  #
-  #
-  #THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  #IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-  #FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-  #COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-  #IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-  #CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  #
-
-  @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
-  tic()
-  rhs=B
-  nrmb=vecnorm(rhs)^2
-  sqrt2=sqrt(2)
-  er2=zeros(m,1)
-
-  n,sh=size(rhs)
-  Y=[]
-  odds=[]
-  er2=[]
-  global rho, js, j
-  # factorize A just once
-  if norm(A-A',1)<1e-14
-     UA = chol(-A)
-     LA = -UA'
-     println("A sym. Completed Chol factorization\n")
-     k_max =2
-   else
-     LA, UA=lu(A)
-     println("A nonsym. Completed LU factorization\n")
-     k_max = m
-   end
-   s=2*sh
-
-   #Solve with A: rhs1=A^{-1}B
-   rhs1=UA\(LA\rhs)
-
-   # Orthogonalize [B,A^{-1}B] with an economy-size QR
-   srf = size(rhs)[1]
-   srs = size(rhs)[2]
-   sr1s = size(rhs1)[2]
-   rr = zeros(srf,srs+sr1s)
-   rr[1:srf,1:srs] = rhs
-   rr[1:srf,srs+1:srs+sr1s] = rhs1
-   U,beta=qr(rr)
-   #U = U[1:n,1:s]
-
-
-
-
-   ibeta=inv(beta[1:s,1:s])
-   beta = beta[1:sh,1:sh]
-   beta2=beta*beta'
-
-   # Preallocate
-   H=zeros((m+1)*s,m*s)
-   T=zeros((m+1)*s,m*s)
-   L=zeros((m+1)*s,m*s)
-
-   for j=1:m
-     jms=(j-1)*s+1
-     j1s=(j+1)*s
-     js=j*s
-     js1=js+1
-     jsh=(j-1)*s+sh
-
-     # Expand the basis
-     # multiply by A
-     Up = zeros(n,s)
-     Up[1:n,1:sh] = A*U[:,jms:jsh]
-     # solve with A
-
-     Up[1:n,sh+1:s] = UA\(LA\U[1:n,jsh+1:js])
-
-
-     # orthogonalize the new basis block wrt all the previous ones by modified gram
-     for l=1:2
-        k_min=max(1,j-k_max);
-        for kk=k_min:j
-            k1=(kk-1)*s+1
-            k2=kk*s
-            coef= U[1:n,k1:k2]'*Up
-            H[k1:k2,jms:js] = H[k1:k2,jms:js]+ coef
-            Up = Up - U[:,k1:k2]*coef
-        end
-      end
-
-      # now the new basis block is orthogonal wrt the previous ones, but its
-      # columns are not orthogonal wrt each other --> economy-size QR
-      Up,H[js1:j1s,jms:js] = qr(Up)
-      hinv=inv(H[js1:j1s,jms:js])
-
-      ###############################################################
-      # Recover the columns of T=U'*A*U (projection of A onto the space) from
-      # the colums of H.
-      # REMARK: we need T as coefficient matrix of the projected problem.
-      I=eye(js+s)
-
-      if (j==1)
-        HL = zeros(s+sh,2*sh)
-        HL[1:s+sh,1:sh] = H[1:s+sh,1:sh]/ibeta[1:sh,1:sh]
-        HL[1:s+sh,sh+1:2*sh] = speye(s+sh,sh)/ibeta[1:sh,1:sh]
-        L[1:j*s+sh,(j-1)*sh+1:j*sh] = HL*ibeta[1:s,sh+1:s];
-      else
-        L[1:j*s+s,(j-1)*sh+1:j*sh] = L[1:j*s+s,(j-1)*sh+1:j*sh] + H[1:j*s+s,jms:jms-1+sh]*rho;
-      end
-
-      odds = [odds; jms:(jms-1+sh)]   # store the odd block columns
-      evens = 1:js
-      flag = trues(size(evens))
-      flag[odds] = false
-      evens = evens[flag]
-      T[1:js+s,odds]=H[1:js+s,odds]   #odd columns
-
-      T[1:js+sh,evens]=L[1:js+sh,1:j*sh]   #even columns
-      L[1:j*s+s,j*sh+1:(j+1)*sh] = ( I[1:j*s+s,(js-sh+1):js]- T[1:js+s,1:js]*H[1:js,js-sh+1:js])*hinv[sh+1:s,sh+1:s]
-      rho = hinv[1:sh,1:sh]\hinv[1:sh,sh+1:s]
-
-      #################################################################
-
-      # Solve the projected problem by Bartels-Stewart
-      # Do "type lyap" from command window if interested
-      k=j
-      Y = lyap((T[1:js,1:js]),eye(k*s,sh)*beta2*eye(k*s,sh)')
-
-      # safeguard to preserve symmetry
-      Y = (Y+Y')/2
-
-      # Compute the residual norm. See the article by Valeria
-      cc = zeros(j1s-js1+1,s)
-      cc[:,1:s-sh]=H[js1:j1s,js-s+1:js-sh]
-      cc[:,s-sh+1:s]=L[js1:j1s,(j-1)*sh+1:j*sh]
-
-      er2=[er2;sqrt2*vecnorm(cc*Y[js-s+1:js,:])/nrmb]
-
-      @printf("It: %d, Current relative residual norm: %10.5e \n",k,er2[k])
-
-      if (er2[k]<tol)
-        break
-      else
-        su = size(U)[2]
-        sup = size(Up)[2]
-        newU = zeros(n,su+sup)
-        newU[1:n,1:su]=U
-        newU[1:n,su+1:su+sup]=Up
-        U = newU
-      end
-    end
-    # Done
-    # reduce solution rank if needed
-    sY,uY=eig(Y)
-    sY=sort(sY)
-    id=sortperm(sY)
-    sY=flipdim(sY,1)
-    uY=uY[:,id[end:-1:1]]
-    is = 0
-    for ii in 1:size(sY)[1]
-      if abs(sY[ii])>tolY
-        is = is+1
-      end
-    end
-
-    Y0 = uY[:,1:is]*diagm(sqrt(sY[1:is]))
-    Z = U[1:n,1:js]*Y0
-
-    er2=er2[1:j]
-    total_time=toq()
-    println("************* \n AT CONVERGENCE \n")
-    @printf("Its: %d, Computed res: %10.5e, Space dim: %d, CPU Time: %10.5e\n",j,er2[j],js,total_time)
-
-    return Z, er2
-
-end
-
-###############################################
-#
-# kpikGL function definition
-#
-###############################################
-
-function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
-  # Julia code for K-PIK (Krylov-plus-inverted-Krylov)
-  # Based on kpik.m avalible from V. Simoncini's website
-  #
-  # Description from Simoncini:
   #
   # Approximately solve
   #
@@ -245,15 +20,18 @@ function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
   # by means of the extended Krylov subspace method
   # Input
   #  A   coeff matrix, A < 0
-  #  E   coeff matrix, spd,
-  #  LE  lower triang factor of coeff matrix
   #  B   factor of rhs,   nxk matrix with k << n
-  #  m   max space dimension, say sqrt(size(A))
+  #  NAMED ARGUMENTS
+  #  E   coeff matrix, spd, Defult: 1
+  #  LE  lower triang factor of coeff matrix, Defult: 1
+  #  *Note: This is an optional argument, if not provided it will be set to
+  #  cholfact(E)[:L]*
+  #  m   max space dimension, Defult: 100
   #  tol stopping tolerance, with stopping criterion
   #          ||LE\A X LE  + LE' X A'/LE'-LE\BB'/LE'||
   #          ----------------------------------------  < tol
   #      ||LE\BB'/LE'|| + ||E^{-1}|| ||A|| ||LE'X LE ||
-  #      computed in a cheap manner
+  #      computed in a cheap manner. Defult: 1e-9
   #
   #  Output:
   #  Z   solution factor   X = Z Z'
@@ -265,9 +43,12 @@ function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
   #   As an alternative, a periodic computation could be considered.
   # * This code performs a factorization of A. As an alternative,
   #   iterative solves could be considered.
+  # * To solve
   #
-  #  Please contact V. Simoncini for any problem you may encouter when
-  #  running the code
+  #       A X + X A' + BB' = 0
+  #
+  # Use kpik(A,B) as E is set to 1 by Defult
+  #
   #
   # If you use this code, please cite the following article:
   #
@@ -287,6 +68,12 @@ function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
   @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
 
   tic()
+
+  #### Check if we solve the general lyapunov equation and user did not provide LE
+  if E != 1 && LE == 1
+    #### If this is the case, calculate LE
+    LE = cholfact(E)[:L]
+  end
 
   rhs=LE\B;
   nrmb=vecnorm(rhs)^2;
@@ -304,7 +91,7 @@ function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
     condestE=cond(E);
     singE=condestE/vecnorm(E);
   else
-    singE=1;
+    singE=1
   end
 
   if norm(A-A',1)<1e-14
@@ -380,10 +167,7 @@ function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
       I=eye(js+s)
 
       if (j==1)
-        HL = zeros(s+sh,2*sh)
-        HL[1:s+sh,1:sh] = H[1:s+sh,1:sh]/ibeta[1:sh,1:sh]
-        HL[1:s+sh,sh+1:2*sh] = eye(s+sh,sh)/ibeta[1:sh,1:sh]
-        L[1:j*s+sh,(j-1)*sh+1:j*sh] = HL*ibeta[1:s,sh+1:s];
+        L[1:j*s+sh,(j-1)*sh+1:j*sh] = [H[1:s+sh,1:sh]/ibeta[1:sh,1:sh] speye(s+sh,sh)/ibeta[1:sh,1:sh]]*ibeta[1:s,sh+1:s];
       else
         L[1:j*s+s,(j-1)*sh+1:j*sh] = L[1:j*s+s,(j-1)*sh+1:j*sh] + H[1:j*s+s,jms:jms-1+sh]*rho;
       end
@@ -403,24 +187,22 @@ function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
 
       # Solve the projected problem by Bartels-Stewart
       # Do "type lyap" from command window if interested
-      k=j
 
-      Y = lyap((T[1:js,1:js]),eye(k*s,sh)*beta2*eye(k*s,sh)')
+      Y = lyap((T[1:js,1:js]),eye(j*s,sh)*beta2*eye(j*s,sh)')
 
       # safeguard to preserve symmetry
       Y = (Y+Y')/2
 
       # Compute the residual norm. See the article by Valeria
-      cc = zeros(j1s-js1+1,s)
-      cc[:,1:s-sh]=H[js1:j1s,js-s+1:js-sh]
-      cc[:,s-sh+1:s]=L[js1:j1s,(j-1)*sh+1:j*sh]
+
+      cc = [H[js1:j1s,js-s+1:js-sh] L[js1:j1s,(j-1)*sh+1:j*sh]]
 
       nrmx = vecnorm(Y)
 
       er2=[er2;sqrt2*vecnorm(cc*Y[js-s+1:js,:])/(nrmb+singE*nrma*nrmx)]
 
-      @printf("It: %d, Current relative residual norm: %10.5e \n",k,er2[k])
-      if (er2[k]<tol)
+      @printf("It: %d, Current relative residual norm: %10.5e \n",j,er2[j])
+      if (er2[j]<tol)
         break
       else
         su = size(U)[2]
@@ -446,8 +228,8 @@ function kpikGL(A,E,LE,B,m=100,tol=1e-9,tolY=1e-12)
     end
 
     Y0 = uY[:,1:is]*diagm(sqrt(sY[1:is]))
-    Z = LE'\U[1:n,1:js]*Y0
-
+    Z = LE'\(U[1:n,1:js]*Y0)
+    total_time=toq()
     er2=er2[1:j]
     println("   its           comp.res.   space dim.   CPU Time\n")
     @printf("%10.5e  %10.5e   %10.5e  %10.5e \n",j,er2[j],js,total_time)
