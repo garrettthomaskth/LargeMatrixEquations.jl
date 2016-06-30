@@ -70,6 +70,7 @@ Lres=EL\B;
 [V,irr]=qr(Lres,0);rr=inv(irr);
 nrmb=norm(inv(rr),'fro')^2; beta=V'*Lres; beta2=beta*beta';
 s=zeros(m+2,1);
+%s=zeros(2,1);
 
 fprintf('     no its     backward error\n')
 VV=zeros(n,p*(m+2));
@@ -91,6 +92,7 @@ if (norm(A-E-(A-E)',1)<1e-14), symm=1; else symm=0;end
  s(1)=s1;
  eH=eig(K);
  eHpoints = sort([s1,emax]);
+
  snew=newpolei(eHpoints,eH,s1*uno');
  if real(snew)<0, snew=-real(snew)+sqrt(-1)*imag(snew);end
  s(2)=snew;
@@ -147,7 +149,8 @@ while i < m
 % computed residual   (exact, in exact arithmetic)
      u1=newAv-VV(1:n,1:js)*g;
      d=-VV(1:n,1:js)*(Y*(H(1:ih*p,1:ih*p)'\[sparse(p*(ih-1),p);I])*H(p*ih+1:p*ih1,p*ih-p+1:p*ih)');
-     U=[-V*s(end),  d u1 ];
+     disp(full(sparse(p*(ih-1),p)))
+     U=[-V*s(end)  d u1 ];
      rr=qr(full(U),0); rr=triu(rr(1:size(rr,2),:));
      nrmres=norm(rr*sparse([O I O; I O I; O I O ])*rr','fro')/(nrmb+singE*nrma*nrmx);
      nrmrestot=[nrmrestot,nrmres];
@@ -188,7 +191,7 @@ while i < m
        end
        eH=eH(1:ih*p);
      end
-      eHpoints = sort([s1; emax.';-real(eH)]);
+      eHpoints = sort([s1; emax.';-real(eH)])
       eH=eHorig;
  end
 

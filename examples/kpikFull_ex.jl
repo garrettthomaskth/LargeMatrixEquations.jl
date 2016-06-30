@@ -2,9 +2,10 @@
 # Script to test kpikFull.jl
 # Based on example_kpik.m in the Davide folder
 ######################################
-
+workspace()
 cd("/Users/garrettthomas/matrixEqs")
-include("kpikFull.jl")
+include("../src/matrixEqs.jl")
+using matrixEqs
 nh = 30
 n = nh^2
 # Create the Matrix T (find a more sophisticated way to do this)
@@ -26,5 +27,5 @@ LE=full(cholfact(E)[:L])
 m=100
 tol=1e-9
 tolY=1e-12
-Z,er2=kpikFull(A,E,LE,B)
-print(size(Z))
+Z,er2=kpik(A,B,E)
+print(norm(A*Z*Z'*E+E*Z*Z'*A'+B*B'))

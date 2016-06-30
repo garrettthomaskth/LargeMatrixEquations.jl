@@ -167,7 +167,7 @@ function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12)
       I=eye(js+s)
 
       if (j==1)
-        L[1:j*s+sh,(j-1)*sh+1:j*sh] = [H[1:s+sh,1:sh]/ibeta[1:sh,1:sh] speye(s+sh,sh)/ibeta[1:sh,1:sh]]*ibeta[1:s,sh+1:s];
+        L[1:j*s+sh,(j-1)*sh+1:j*sh] = [H[1:s+sh,1:sh]/ibeta[1:sh,1:sh] eye(s+sh,sh)/ibeta[1:sh,1:sh]]*ibeta[1:s,sh+1:s];
       else
         L[1:j*s+s,(j-1)*sh+1:j*sh] = L[1:j*s+s,(j-1)*sh+1:j*sh] + H[1:j*s+s,jms:jms-1+sh]*rho;
       end
