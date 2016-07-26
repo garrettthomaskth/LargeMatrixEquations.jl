@@ -19,6 +19,7 @@ for i in 2:(nh-1)
   T[i,i] = 2
   T[i,i+1] = -1
 end
+T[2,1]=0
 I = eye(nh,nh)
 A = -(kron(T,I)+kron(I,T))
 B = randn(n,2)
