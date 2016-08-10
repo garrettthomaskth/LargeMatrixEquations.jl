@@ -2,6 +2,7 @@ module matrixEqs
 
 export kpik, rksm
 
+typealias ScalarOrArray{T} Union{T, Array{T}}
 
 ###############################################
 #
@@ -9,7 +10,7 @@ export kpik, rksm
 #
 ###############################################
 
-function kpik(A,B,E=1;LE=1,m::Number=100,tol::Number=1e-9,tolY::Number=1e-12)
+function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Number=1e-9,tolY::Number=1e-12)
   # Julia code for K-PIK (Krylov-plus-inverted-Krylov)
   # Based on kpik.m avalible from V. Simoncini's website
   #
@@ -236,7 +237,8 @@ end
 ###############################################
 
 
-function rksm(A,E,EL,B;s1::Number=NaN,emax::Number=NaN,m::Int=100,tol::Number=1e-9,ch::Bool=true,tolY::Number=1e-12)
+function rksm(A::ScalarOrArray,B::ScalarOrArray,E::ScalarOrArray=1;EL::ScalarOrArray=1,
+  s1::Number=NaN,emax::Number=NaN,m::Int=100,tol::Number=1e-9,ch::Bool=true,tolY::Number=1e-12)
 # Based on rksm.m on Valeria Simoncini's website
 #
 # Approximately Solve
@@ -273,10 +275,6 @@ function rksm(A,E,EL,B;s1::Number=NaN,emax::Number=NaN,m::Int=100,tol::Number=1e
 #    limit fill-in in the system solves
 # 2) Provide "comfortable" (loose bounds) estimates s1, emax
 #
-#
-#  Please contact V. Simoncini for any problem you may encouter when
-#  running the code
-#
 #  When using this code, please cite the following reference:
 #
 #  V. Druskin and V. Simoncini,
@@ -312,15 +310,17 @@ if (isnan(emax))
   (!symm) && (emax = maximum(abs(eigvals(inv(E)*(-A)))))
 end
 
+if (E != 1 && EL == 1)
+  EL = cholfact(E)[:L]
+end
+
 n=size(A,1)
 B=full(B)
 p=size(B,2)
-sEL1 = size(EL,1)
 Iden=speye(p)
 O=0*Iden
 uno=ones(1,p)
-Lres = Array(typ,sEL1,p)
-Lres[1:sEL1,1:p] = EL\B
+Lres = convert(Array{typ,2},EL\B)
 
 V,irr=qr(Lres)
 rr=inv(irr)
@@ -344,8 +344,8 @@ else
 end
 
 
-
 newAv=EL\(A*(EL'\V));
+
 K=V'*newAv;
 push!(s,s1);
 eH=eig(K)
@@ -371,10 +371,10 @@ while i < m
 
     i1=i+1;
     w=EL*V;
-    wrk = (A-snew*E)\w;
+    E==1 ? wrk = (A-snew*diagm(ones(n),0))\w : wrk = (A-snew*E)\w;
     wrk= EL'*wrk;
 
-# Gram-Schmidt step
+    # Gram-Schmidt step
     jms=(i-1)*p+1;
     j1s=(i+1)*p;
     js=i*p;
@@ -479,14 +479,10 @@ while i < m
    gs=kron(s[2:i+1].',uno)';
 
    snew = newpolei(eHpoints,eH,gs,typ);
-   if real(snew)<0
-     snew=-real(snew)+im*imag(snew);
-   end  #safeguard strategy
+   (real(snew)<0) && (snew=-real(snew)+im*imag(snew)); #safeguard strategy
 
    # If pole is complex, include its conjugate
-   if (imag(snew) !=0)
-     cmplxflag=true;
-   end
+   (imag(snew) !=0) && (cmplxflag=true);
 
    push!(s,snew)
 
@@ -562,6 +558,8 @@ end
 
 #######################################
 function convhull(pnts)
+    #Based on code from (https://github.com/intdxdt/convexhull.jl)
+
     # Function to compute 2-D convex hull
     T = eltype(pnts) #get point type
     N = length(pnts) #number of pnts
@@ -571,17 +569,13 @@ function convhull(pnts)
     #trivial case 0 or 1 point
     length(pnts) <= 1 && (return pnts)
 
-    #=
-    sort points lexicographically
-    =#
+    #sort points lexicographically
     sort!(pnts, lt=lt2d)
 
-    #=
-    function to orient boundry using 2D cross product of OA and OB vectors,
-     i.e. z-component of their 3D cross product.
-     Returns a positive value, if OAB makes a counter-clockwise turn,
-     negative for clockwise turn, and zero if the points are collinear.
-    =#
+    #function to orient boundry using 2D cross product of OA and OB vectors,
+    #i.e. z-component of their 3D cross product.
+    #Returns a positive value, if OAB makes a counter-clockwise turn,
+    #negative for clockwise turn, and zero if the points are collinear.
     orient(b, pnt) = (real(b[end]-b[end-1]) * imag(pnt - b[end-1])) -
                       (imag(b[end-1] - b[end-1]) * real(pnt - b[end-1]))
 
@@ -623,9 +617,7 @@ function convhull(pnts)
     return hull
 end
 
-#=
-less than comparator
-=#
+#less than comparator
 function lt2d(a, b)
     dx, dy =  real(a - b), imag(a - b);
     dx != 0 &&  (return <(dx, 0))

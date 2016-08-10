@@ -21,12 +21,13 @@ I=eye(nh);
 A=-(kron(T,I)+kron(I,T));
 n=nh^2;
 srand(123)
-E = diagm(rand(n),0)
+#E = diagm(rand(n),0)
+E = diagm(ones(n),0)
 EL=cholfact(E)[:L]
 B=randn(n,2);
 m=100;
 tol=1e-9;
 tolY=1e-12;
 ch=true;
-Z,resnorm=rksm(A,E,EL,B)#,m,tol,s1,emax,ch,tolY);
+Z,resnorm=rksm(A,B)#,m,tol,s1,emax,ch,tolY);
 print(norm(A*Z*Z'*E+E*Z*Z'*A'+B*B'))
