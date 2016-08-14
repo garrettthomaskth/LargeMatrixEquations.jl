@@ -1,6 +1,6 @@
 module matrixEqs
 
-export kpik, rksm, lp_lradi, lp_para
+export kpik, rksm, lp_lradi, lp_para, lp_arn, lp_s
 
 typealias ScalarOrArray{T} Union{T, Array{T}}
 
@@ -1390,16 +1390,16 @@ if any(real(rw) .>= zeros(size(rw)))
   println(" ");
   println("NOTE: The unstable Ritz values will be ignored in the further computation!!! ");
   println(" ")
-  rw1 = [];
-  for j = 1:length(rw)
-    if real(rw[j])<0
-      push!(rw1,rw[j]);
+  rw0 = rw+0;
+  rw = [];
+  for j = 1:length(rw0)
+    if real(rw0[j])<0
+      push!(rw,rw0[j]);
     end
-
   end
 end
 
-p = lp_mnmx(rw1,l0);
+p = lp_mnmx(rw,l0);
 
 p
 end
@@ -1470,7 +1470,7 @@ V[:,1] = (1.0/norm(r))*r;
 
 beta = 0;
 
-LP_L,LP_U,~ = lu(A)
+LP_L,LP_U,~ = lu(A,Val{false})
 
 if with_BK && pm=="m"
   # SM = inv(F)*Bf*inv(I-Kf'*inv(F)*Bf)

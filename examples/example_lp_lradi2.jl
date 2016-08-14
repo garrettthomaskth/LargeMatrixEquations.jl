@@ -80,7 +80,7 @@ println("... solving A*XB+XB*A'' = - B*B''...");
 tp = "B";
 
 #figure(1), hold off; clf;   # (lp_lradi will plot residual history.)
-
+@profile lp_lradi(A,B,p)
 ZB,flag,res = lp_lradi(A,B,p)#,max_it,tp,zk,rc,min_res,with_rs,min_in,info);
 # compute ZB
 
