@@ -18,7 +18,7 @@ include("../src/matrixEqs.jl")
 using matrixEqs
 
 
-A = zeros(408,408); B = ones(408,1); C = ones(408,1);
+A = speye(408,408); B = ones(408,1); C = ones(408,1);
 A[1:2,1:2] = [-.01 -200; 200 .001];
 A[3:4,3:4] = [-.2 -300; 300 -.1];
 A[5:6,5:6] = [-.02 -500; 500 0];
@@ -80,8 +80,12 @@ println("... solving A*XB+XB*A'' = - B*B''...");
 tp = "B";
 
 #figure(1), hold off; clf;   # (lp_lradi will plot residual history.)
-@profile lp_lradi(A,B,p)
-ZB,flag,res = lp_lradi(A,B,p)#,max_it,tp,zk,rc,min_res,with_rs,min_in,info);
+#using ProfileView
+ZB,flag,res =lp_lradi(A,B,p,max_it=200)
+#Profile.clear()
+#@profile lp_lradi(A,B,p,max_it=200)
+#ProfileView.view()
+#ZB,flag,res = lp_lradi(A,B,p)#,max_it,tp,zk,rc,min_res,with_rs,min_in,info);
 # compute ZB
 
 X=ZB*ZB'

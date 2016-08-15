@@ -6,7 +6,7 @@ workspace()
 include("../src/matrixEqs.jl")
 using matrixEqs
 
-nh = 30
+nh = 50
 n = nh^2
 T = zeros(nh,nh)
 T[1,1] = 2
@@ -18,8 +18,9 @@ for i in 2:(nh-1)
   T[i,i] = 2
   T[i,i+1] = -1
 end
+T[3,1]=1
 I = eye(nh,nh)
-A = -(kron(T,I)+kron(I,T))
+A = sparse(-(kron(T,I)+kron(I,T)))
 srand(1234)
 B = randn(n,2)
 E = diagm(rand(n),0)
@@ -28,5 +29,13 @@ m=100
 tol=1e-9
 tolY=1e-12
 Z,er2=kpik(A,B,E,tolY=tolY)
-norm(A*Z*Z'*E+E*Z*Z'*A'+B*B') > 1 && println(i)
+
+#using ProfileView
+#kpik(A,B,E,tolY=tolY)
+#Profile.clear()
+#@profile kpik(A,B,E,tolY=tolY)
+#ProfileView.view()
+
+
+#norm(A*Z*Z'*E+E*Z*Z'*A'+B*B') > 1 && println(i)
 print(norm(A*Z*Z'*E+E*Z*Z'*A'+B*B'))

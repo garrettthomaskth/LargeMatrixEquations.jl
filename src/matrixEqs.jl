@@ -1,6 +1,6 @@
 module matrixEqs
 
-export kpik, rksm, lp_lradi, lp_para, lp_arn, lp_s
+export kpik, rksm, lp_lradi, lp_para
 
 typealias ScalarOrArray{T} Union{T, Array{T}}
 
@@ -79,49 +79,49 @@ function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Numb
     LE = cholfact(E)[:L]
   end
 
-  rhs=LE\B;
-  nrmb=vecnorm(rhs)^2;
-  nrma=vecnorm(A);
-  sqrt2=sqrt(2);
+  const rhs=LE\B;
+  const nrmb=vecnorm(rhs)^2;
+  const nrma=vecnorm(A);
+  const sqrt2=sqrt(2);
   er2=zeros(m,1);
 
-  n,sh=size(rhs);
+  const n,sh=size(rhs);
 
   Y=[]
   odds=[]
   er2=[]
 
   if (vecnorm(E-speye(n))>1e-14)
-    condestE=cond(E);
-    singE=condestE/vecnorm(E);
+    const condestE=cond(E);
+    const singE=condestE/vecnorm(E);
   else
-    singE=1
+    const singE=1
   end
 
   if norm(A-A',1)<1e-14
-     UA = chol(-A)
-     LA = -UA'
+     const UA = chol(full(-A))
+     const LA = -UA'
      println("A sym. Completed Chol factorization\n")
-     k_max =2
+     const k_max =2
    else
-     LA, UA=lu(A)
+     const LA, UA=lu(full(A))
      println("A nonsym. Completed LU factorization\n")
-     k_max = m
+     const k_max = m
    end
 
-   s=2*sh;
-   rhs1=LE'*(UA\(LA\(LE*rhs)));
+   const s=2*sh;
+   #rhs1=LE'*(UA\(LA\(LE*rhs)));
 
    # Orthogonalize [B,A^{-1}B] with an economy-size QR
-   rr = [ rhs rhs1 ]
+   rr = [ rhs LE'*(UA\(LA\(LE*rhs))) ]
 
    # Julia qr decomposition is always "economy size"
    U,beta=qr(rr)
    U = U[1:n,1:s]
 
-   ibeta=inv(beta[1:s,1:s]);
+   const ibeta=inv(beta[1:s,1:s]);
    beta = beta[1:sh,1:sh];
-   beta2=beta*beta';
+   const beta2=beta*beta';
    H=zeros((m+1)*s,m*s);
    T=zeros((m+1)*s,m*s);
    L=zeros((m+1)*s,m*s);
@@ -164,9 +164,11 @@ function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Numb
       # Recover the columns of T=U'*A*U (projection of A onto the space) from
       # the colums of H.
       # REMARK: we need T as coefficient matrix of the projected problem.
-      Iden=eye(js+s)
+      Iden=speye(js+s)
 
       if (j==1)
+        println(typeof(s+sh))
+        println(typeof(sh))
         L[1:j*s+sh,(j-1)*sh+1:j*sh] = [H[1:s+sh,1:sh]/ibeta[1:sh,1:sh] eye(s+sh,sh)/ibeta[1:sh,1:sh]]*ibeta[1:s,sh+1:s];
       else
         L[1:j*s+s,(j-1)*sh+1:j*sh] = L[1:j*s+s,(j-1)*sh+1:j*sh] + H[1:j*s+s,jms:jms-1+sh]*rho;
@@ -299,10 +301,10 @@ function rksm(A::ScalarOrArray,B::ScalarOrArray,E::ScalarOrArray=1;EL::ScalarOrA
 
 tic()
 
-symm = norm(A-E-(A-E)',1) < 1e-14
+const symm = norm(A-E-(A-E)',1) < 1e-14
 # If not symmetric, we may have complex poles.
 # Therefore we must use complex types
-symm ? typ = Float64 : typ = Complex{Float64}
+symm ? (const typ = Float64) : (const typ = Complex{Float64})
 
 # If user does not give smallest generalized eigenvalue, calculate it
 if (isnan(s1))
@@ -320,33 +322,33 @@ if (E != 1 && EL == 1)
   EL = cholfact(E)[:L]
 end
 
-n=size(A,1)
+const n=size(A,1)
 B=full(B)
-p=size(B,2)
-Iden=speye(p)
-O=0*Iden
-uno=ones(1,p)
-Lres = convert(Array{typ,2},EL\B)
+const p=size(B,2)
+const Iden=speye(p)
+const O=0*Iden
+const uno=ones(1,p)
+const Lres = convert(Array{typ,2},EL\B)
 
 V,irr=qr(Lres)
 rr=inv(irr)
-nrmb=vecnorm(inv(rr))^2
-beta=V'*Lres
-beta2=beta*beta'
+const nrmb=vecnorm(inv(rr))^2
+const beta=V'*Lres
+const beta2=beta*beta'
 s=typ[]
 print("     no its     backward error\n")
 VV=Array(typ,n,p*(m+2))
 VV[1:n,1:p]=V
 H=Array(typ,p*(m+2),p*(m+1))
 nrmrestot=[]
-nrma=vecnorm(A)
+const nrma=vecnorm(A)
 
 
 if (vecnorm(E-speye(n))>1e-14)
-  condestE=cond(E);
-  singE=condestE/vecnorm(E);
+  const condestE=cond(E);
+  const singE=condestE/vecnorm(E);
 else
-  singE=1;
+  const singE=1;
 end
 
 
@@ -576,8 +578,8 @@ function convhull(pnts)
     #Based on code from (https://github.com/intdxdt/convexhull.jl)
 
     # Function to compute 2-D convex hull
-    T = eltype(pnts) #get point type
-    N = length(pnts) #number of pnts
+    const T = eltype(pnts) #get point type
+    const N = length(pnts) #number of pnts
     # sort the points lexicographically.
     # copy points into mutable container
 
@@ -620,11 +622,12 @@ function convhull(pnts)
     length(lower) > 0 && pop!(lower)
 
     # two reapeated points
-    (length(upper)==1 && length(lower)==1) &&
-    isequal(upper, lower) && pop!(upper)
+    if (length(upper)==1 && length(lower)==1 && isequal(upper, lower))
+      pop!(upper)
+    end
 
     # concat lower and upper hull.
-    hull = [lower; upper]
+    hull =[lower; upper]
 
     #close ring
     length(hull) > 1 && push!(hull, hull[1])
@@ -853,47 +856,51 @@ function lp_lradi(A::ScalarOrArray,B::ScalarOrArray,p::ScalarOrArray;Bf::ScalarO
 # stcf is also the number of consecutive steps, for which the criterion
 # w.r.t. min_in must be fulfilled.
 #
-
-stcf = 10;
-min_rs = .1;
+tic()
+const stcf = 10;
+const min_rs = .1;
 
 (zk!="Z" && zk!="K") && error("zk must be either ''Z'' or ''K''.");
 (tp!="B" && tp!="C") && error("tp must be either ''B'' or ''C''.");
 (rc!="R" && rc!="C") && error("rc must be either ''R'' or ''C''.");
 
-compute_K = (zk=="K");
+const compute_K = (zk=="K");
 
 if compute_K
-  with_norm = false;
-  with_min_rs = false;
-  K_is_real = (imag(K)==0);
+  const with_norm = false;
+  const with_min_rs = false;
+  const K_is_real = (imag(K)==0);
 else
-  with_min_rs = (with_rs=="S");
-  with_norm = (min_res>0)||with_min_rs;
-  make_real = (rc=="R");
+  const with_min_rs = (with_rs=="S");
+  const with_norm = (min_res>0)||with_min_rs;
+  const make_real = (rc=="R");
 end
-with_min_in = min_in>0;
+const with_min_in = min_in>0;
 
-with_BK = !isempty(Bf);
+const with_BK = !isempty(Bf);
 
-l = length(p);
+const l = length(p);
 
 if tp=="B"
-  n,m = size(B)
+  const n,m = size(B)
 else
-  m,n = size(B)
+  const m,n = size(B)
 end
 
-Ide = eye(size(A,1))
+const Ide = speye(size(A,1))
 LP_L = Array(Complex{Float64},size(A)...,l)
 LP_U = Array(Complex{Float64},size(A)...,l)
+#LL,UU,~=lu(A,Val{false})
+#invUU=inv(UU)
 for i = 1:l
-  LP_L[:,:,i],LP_U[:,:,i],~=lu(A+p[i]*Ide,Val{false});
+  LP_L[:,:,i],LP_U[:,:,i],~=lu(full(A+p[i]*Ide),Val{false});
+  #LP_L[:,:,i] = LL+p[i]*invUU
+  #LP_U[:,:,i] = UU
 end
 
 if with_BK
   SM=Array(Complex{Float64},size(Bf)...,l)
-  Im = eye(size(Bf,2));
+  Im = speye(size(Bf,2));
   if tp=="B"
     # SMi = TM*inv(I-Kf'*TM),
     # where TM = inv(F+p(i)*I)*Bf
@@ -1103,7 +1110,7 @@ end
 if compute_K && K_is_real
    Z = real(Z);
 end
-
+println(toq())
 Z, flag, res
 end
 
@@ -1200,9 +1207,9 @@ function lp_nrmu( A, B, Bf, Kf, tp, V, nrmQ, nrmR, nrmbs )
 
 # Input data not completely checked!
 
-with_BK = length(Bf)>0;
+const with_BK = length(Bf)>0;
 
-n= size(A,1);                    # Get system order.
+const n= size(A,1);                    # Get system order.
 
 if isempty(V)
   # The routine is called for the first time (before the iteration
@@ -1243,12 +1250,13 @@ else
     t = Z[:,j];
     for k = 1:lw
       u = nrmQ[:,k];
-      alpha = u'*t;
-      t = t-alpha[1]*u;
+      alpha = dot(u,t);
+      t = t-alpha*u;
       a[k] = alpha[1];
     end
     beta = norm(t);
-    nrmQ = [nrmQ t/beta];
+    nrmQ = [nrmQ t/beta]
+    #nrmQ = push!(nrmQ, t/beta...);
     nrmR = [ nrmR a; zeros(1,lw) beta ];
     lw = lw+1;
   end
@@ -1457,9 +1465,9 @@ function lp_arn(A,Bf,Kf,k,r,pm)
 
 # Input data not completely checked!
 
-with_BK = !isempty(Bf);
+const with_BK = !isempty(Bf);
 
-n = size(A,1)                 # Get system order.
+const n = size(A,1)                 # Get system order.
 k >= n-1 && error("k must be smaller than the order of A!");
 isempty(r) && (r = randn(n,1));
 
@@ -1470,13 +1478,13 @@ V[:,1] = (1.0/norm(r))*r;
 
 beta = 0;
 
-LP_L,LP_U,~ = lu(A,Val{false})
+LP_L,LP_U,~ = lu(full(A),Val{false})
 
 if with_BK && pm=="m"
   # SM = inv(F)*Bf*inv(I-Kf'*inv(F)*Bf)
   # (This is the main part of the term needed for the low
   # rank correction in the Sherman-Morrison formula.)
-  Im = eye(size(Bf,2));
+  Im = speye(size(Bf,2));
   TM = LP_U\(LP_L\Bf)
   SM = TM/(Im-Kf'*TM);
 end
