@@ -14,4 +14,14 @@ Based on rksm.m from V. Simoncini's [Website](http://www.dm.unibo.it/~simoncin/s
 Resources:
 V. Druskin and V. Simoncini, 
 Adaptive rational Krylov subspaces for large-scale dynamical systems 
-Systems & Control Letters, 60 (2011), pp. 546-560. Convexhull for Julia [GitHub](https://github.com/intdxdt/convexhull.jl).
+Systems & Control Letters, 60 (2011), pp. 546-560. 
+Convexhull for Julia [GitHub](https://github.com/intdxdt/convexhull.jl).
+
+######Low Rank Cholesky Factor Alternating Direction Implicit (LRCF-ADI) Method
+Based on lp_lradi.m from LAYPACK 1.0, [Website](https://www.tu-chemnitz.de/sfb393/lyapack/)
+Resources:
+J.Li, F.Wang, and J.White.
+An efficient Lyapunov equation based approach for generating
+reduced-order models of interconnect.
+Proceedings of the 36th IEEE/ACM Design Automation Conference,
+New Orleans, LA, 1999.
