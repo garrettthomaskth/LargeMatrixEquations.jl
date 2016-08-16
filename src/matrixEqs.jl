@@ -652,7 +652,7 @@ end
 #
 #     Please note: The following functions lp_lradi, lp_nrmu, lp_para,
 #                  lp_arn, lp_mnmx are based on the functions
-#                  with the same name in LAYPACK 1.0 (lp_arn
+#                  with the same name in LYAPACK 1.0 (lp_arn
 #                  is based on lp_arn_m.m and lp_arn_p.m). The
 #                  structure of these files is closely followed
 #                  and even includes many of the same comments.
@@ -665,7 +665,7 @@ function lp_lradi(A::ScalarOrArray,B::ScalarOrArray,p::ScalarOrArray;Bf::ScalarO
   tp::AbstractString="B",zk::AbstractString="Z",rc::AbstractString="C",
   min_res::Number=1e-6,with_rs::AbstractString="S",min_in::Number=0,info::Bool=true)
 #
-#  Based on lp_lradi.m from LAYPACK 1.0
+#  Based on lp_lradi.m from LYAPACK 1.0
 #
 #  Low Rank Cholesky Factor Alternating Direction Implicit (LRCF-ADI) Method for
 #  solving the stable Lyapunov equation:
@@ -769,7 +769,7 @@ function lp_lradi(A::ScalarOrArray,B::ScalarOrArray,p::ScalarOrArray;Bf::ScalarO
 #               = "S": with_rs,
 #               = "N": min_in,
 #    res       the relative residual norms attained in the course of
-#              the iterations (res(i+1) is the norm after the i-th step
+#              the iterations (res[i+1] is the norm after the i-th step
 #              of the iteration!). See note in min_res.
 #
 #  Remarks:
@@ -1119,13 +1119,13 @@ end
 #
 #     lp_nrmu (helper function for lp_lradi) function definition
 #
-#     based on lp_nrmu.m from LAYPACK 1.0
+#     based on lp_nrmu.m from LYAPACK 1.0
 #
 ############################################################
 
 function lp_nrmu( A, B, Bf, Kf, tp, V, nrmQ, nrmR, nrmbs )
 #
-#  Based on lp_nrmu.m from LAYPACK 1.0
+#  Based on lp_nrmu.m from LYAPACK 1.0
 #
 #  Using updated QR factorizations, this routine computes efficiently
 #  a sequence of norms which correspond to either of the following types:
@@ -1286,14 +1286,14 @@ end
 #
 #     lp_para function definition
 #
-#     based on lp_para.m from LAYPACK 1.0
+#     based on lp_para.m from LYAPACK 1.0
 #
 ############################################################
 
 
 function lp_para(A,Bf,Kf,l0,kp,km,b0)
 #
-#  Based on lp_para.m from LAYPACK 1.0
+#  Based on lp_para.m from LYAPACK 1.0
 #
 #  Estimation of suboptimal ADI shift parameters for the matrix
 #
@@ -1417,14 +1417,14 @@ end
 #
 #     lp_arn (helper function for lp_para) function definition
 #
-#     based on lp_nrn_m.m and lp_nrm_p.m from LAYPACK 1.0
+#     based on lp_nrn_m.m and lp_nrm_p.m from LYAPACK 1.0
 #
 ############################################################
 
 
 function lp_arn(A,Bf,Kf,k,r,pm)
 #
-#  Based on lp_arn_m.m and lp_arn_p.m from LAYPACK 1.0
+#  Based on lp_arn_m.m and lp_arn_p.m from LYAPACK 1.0
 #
 #  Arnoldi method w.r.t. inv(F), where F = A-Bf*Kf'.
 #
@@ -1524,7 +1524,7 @@ end
 
 function lp_mnmx(rw,l0)
 #
-#  Based on lp_mnmx.m from LAYPACK 1.0
+#  Based on lp_mnmx.m from LYAPACK 1.0
 #
 #  Suboptimal solution of the ADI minimax problem. The delivered parameter
 #  set is closed under complex conjugation.
@@ -1585,13 +1585,13 @@ end
 #
 #     lp_s (helper function for lp_lpara) function definition
 #
-#     based on lp_s.m from LAYPACK 1.0
+#     based on lp_s.m from LYAPACK 1.0
 #
 ############################################################
 
 function lp_s(p,set)
 #
-# Based on lp_s.m from LAYPACK 1.0
+# Based on lp_s.m from LYAPACK 1.0
 #
 # Computation of the maximal magnitude of the rational ADI function over
 # a discrete subset of the left complex half plane.
