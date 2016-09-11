@@ -18,7 +18,7 @@ Systems & Control Letters, 60 (2011), pp. 546-560.
 Convexhull for Julia [GitHub](https://github.com/intdxdt/convexhull.jl).
 
 ######Low Rank Cholesky Factor Alternating Direction Implicit (LRCF-ADI) Method
-Based on lp_lradi.m from LAYPACK 1.0, [Website](https://www.tu-chemnitz.de/sfb393/lyapack/)
+Based on lp_lradi.m from LAYPACK 1.0, [Website](https://www.tu-chemnitz.de/sfb393/lyapack/).
 Resources:
 J.Li, F.Wang, and J.White.
 An efficient Lyapunov equation based approach for generating
