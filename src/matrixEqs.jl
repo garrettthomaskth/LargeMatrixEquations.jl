@@ -2,7 +2,8 @@ module matrixEqs
 
 export kpik, rksm, lp_lradi, lp_para
 
-typealias ScalarOrArray{T} Union{T, Array{T}}
+
+#using PyPlot
 
 ###############################################
 #
@@ -13,104 +14,132 @@ typealias ScalarOrArray{T} Union{T, Array{T}}
 #
 ###############################################
 
-function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Number=1e-9,tolY::Number=1e-12)
-  # Julia code for K-PIK (Krylov-plus-inverted-Krylov)
-  # Based on kpik.m avalible from V. Simoncini's website
-  #
-  # Approximately solve
-  #
-  #       A X E + E X A' + BB' = 0
-  #
-  # by means of the extended Krylov subspace method
-  # Input
-  #  A   coeff matrix, A < 0
-  #  B   factor of rhs,   nxk matrix with k << n
-  #  NAMED ARGUMENTS
-  #  E   coeff matrix, spd, Defult: 1
-  #  LE  lower triang factor of coeff matrix, Defult: 1
-  #  *Note: This is an optional argument, if not provided it will be set to
-  #  cholfact(E)[:L]*
-  #  m   max space dimension, Defult: 100
-  #  tol stopping tolerance, with stopping criterion
-  #          ||LE\A X LE  + LE' X A'/LE'-LE\BB'/LE'||
-  #          ----------------------------------------  < tol
-  #      ||LE\BB'/LE'|| + ||E^{-1}|| ||A|| ||LE'X LE ||
-  #      computed in a cheap manner. Defult: 1e-9
-  #
-  #  Output:
-  #  Z   solution factor   X = Z Z'
-  #  er2 history of scaled residual, as above
-  #
-  #
-  # Comments:
-  # * The projected solution is computed at each iteration
-  #   As an alternative, a periodic computation could be considered.
-  # * This code performs a factorization of A. As an alternative,
-  #   iterative solves could be considered.
-  # * To solve
-  #
-  #       A X + X A' + BB' = 0
-  #
-  # Use kpik(A,B) as E is set to 1 by Defult
-  #
-  #
-  # If you use this code, please cite the following article:
-  #
-  # V. Simoncini
-  # A new iterative method for solving large-scale Lyapunov matrix equations,
-  # SIAM J.  Scient. Computing, v.29, n.3 (2007), pp. 1268-1288.
-  #
-  #
-  #THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  #IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-  #FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-  #COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-  #IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-  #CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  #
+"""
+    `kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;<keyword arguments>)`
+
+Julia code for K-PIK (Krylov-plus-inverted-Krylov)
+Based on kpik.m avalible from V. Simoncini's website
+
+Approximately solve
+     A X E + E X A' + BB' = 0
+by means of the extended Krylov subspace method
+
+#ARGUMENTS
+'A' : coeff matrix, A < 0
+
+'B' : factor of rhs,   nxk matrix with k << n
+
+#NAMED ARGUMENTS
+'E' : coeff matrix, spd, Defult: 1
+
+'LE' : lower triang factor of coeff matrix, Defult: 1 Note: This is an
+optional argument, if not provided it will be set to cholfact(E)[:L]
+
+'m' : max space dimension, Defult: 100
+
+'tol' : stopping tolerance, with stopping criterion
+
+||LE\\A X LE  + LE' X A'/LE'-LE\\BB'/LE'||
+----------------------------------------      < tol
+||LE\\BB'/LE'|| + ||E^{-1}|| ||A|| ||LE'X LE ||
+
+computed in a cheap manner. Defult: 1e-9
+
+#Output
+'Z' : solution factor s.t.  X = Z Z'
+
+'er2' : history of scaled residual, as above
+
+#Comments
+1. The projected solution is computed at each iteration
+As an alternative, a periodic computation could be considered.
+2. This code performs a factorization of A. As an alternative,
+iterative solves could be considered.
+3. To solve
+
+     A X + X A' + BB' = 0
+
+Use kpik(A,B) as E is set to 1 by Defult
+
+If you use this code, please cite the following article:
+
+V. Simoncini
+A new iterative method for solving large-scale Lyapunov matrix equations,
+SIAM J.  Scient. Computing, v.29, n.3 (2007), pp. 1268-1288.
+"""
+function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,info=true)
 
   @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
 
-  tic()
+  info && tic()
 
   #### Check if we solve the general lyapunov equation and user did not provide LE
   if E != 1 && LE == 1
     #### If this is the case, calculate LE
-    LE = cholfact(E)[:L]
+    if issparse(E)
+      LE = try
+            sparse(cholfact(E,perm=1:size(E,1))[:L])
+           catch
+            error("E must be SPD")
+          end
+    else
+      LE = try
+            cholfact(E)[:L]
+          catch
+            error("E must be SPD")
+          end
+    end
   end
 
-  const rhs=LE\B;
-  const nrmb=vecnorm(rhs)^2;
-  const nrma=vecnorm(A);
-  const sqrt2=sqrt(2);
-  er2=zeros(m,1);
+  const rhs=LE\B
+  const nrmb=vecnorm(rhs)^2
+  const nrma=vecnorm(A)
+  const sqrt2=sqrt(2)
+  er2=zeros(m,1)
 
-  const n,sh=size(rhs);
+  const n,sh=size(rhs)
 
   Y=[]
   odds=[]
   er2=[]
 
   if (vecnorm(E-speye(n))>1e-14)
-    const condestE=cond(E);
-    const singE=condestE/vecnorm(E);
+    const condestE=cond(full(E))
+    const singE=condestE/vecnorm(E)
   else
     const singE=1
   end
 
   if norm(A-A',1)<1e-14
-     const UA = chol(full(-A))
-     const LA = -UA'
+     if issparse(A)
+       cfA = cholfact(-A,perm=1:size(A,1))
+       const LA = sparse(cfA[:L])
+       const UA = -LA'
+     else
+       const UA = chol(-A)
+       const LA = -UA'
+     end
      println("A sym. Completed Chol factorization\n")
      const k_max =2
    else
-     const LA, UA=lu(full(A))
+     luA=lufact(full(A),Val{false})
+     const LA = luA[:L]
+     const UA = luA[:U]
+
+
+     #if issparse(A)
+       #luA=lufact(A)
+       #const LA = luA[:L]
+       #const UA = luA[:U]
+     #else
+       #const LA, UA, ~ =lu(A)
+     #end
      println("A nonsym. Completed LU factorization\n")
      const k_max = m
    end
 
-   const s=2*sh;
-   #rhs1=LE'*(UA\(LA\(LE*rhs)));
+   const s=2*sh
+   #rhs1=LE'*(UA\(LA\(LE*rhs)))
 
    # Orthogonalize [B,A^{-1}B] with an economy-size QR
    rr = [ rhs LE'*(UA\(LA\(LE*rhs))) ]
@@ -119,12 +148,12 @@ function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Numb
    U,beta=qr(rr)
    U = U[1:n,1:s]
 
-   const ibeta=inv(beta[1:s,1:s]);
-   beta = beta[1:sh,1:sh];
-   const beta2=beta*beta';
-   H=zeros((m+1)*s,m*s);
-   T=zeros((m+1)*s,m*s);
-   L=zeros((m+1)*s,m*s);
+   const ibeta=inv(beta[1:s,1:s])
+   beta = beta[1:sh,1:sh]
+   const beta2=beta*beta'
+   H=zeros((m+1)*s,m*s)
+   T=zeros((m+1)*s,m*s)
+   L=zeros((m+1)*s,m*s)
    println("      it        backward err\n")
    local js, j, rho
    for j=1:m
@@ -144,7 +173,7 @@ function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Numb
 
      # orthogonalize the new basis block wrt all the previous ones by modified gram
      for l=1:2
-        k_min=max(1,j-k_max);
+        k_min=max(1,j-k_max)
         for kk=k_min:j
             k1=(kk-1)*s+1
             k2=kk*s
@@ -154,9 +183,9 @@ function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Numb
         end
       end
 
-      if (j<=m)
-        Up,H[js1:j1s,jms:js] = qr(Up);
-        hinv=inv(H[js1:j1s,jms:js]);
+      if j<=m
+        Up,H[js1:j1s,jms:js] = qr(Up)
+        hinv=inv(H[js1:j1s,jms:js])
       end
 
 
@@ -167,11 +196,9 @@ function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Numb
       Iden=speye(js+s)
 
       if (j==1)
-        println(typeof(s+sh))
-        println(typeof(sh))
-        L[1:j*s+sh,(j-1)*sh+1:j*sh] = [H[1:s+sh,1:sh]/ibeta[1:sh,1:sh] eye(s+sh,sh)/ibeta[1:sh,1:sh]]*ibeta[1:s,sh+1:s];
+        L[1:j*s+sh,(j-1)*sh+1:j*sh] = [H[1:s+sh,1:sh]/ibeta[1:sh,1:sh] eye(s+sh,sh)/ibeta[1:sh,1:sh]]*ibeta[1:s,sh+1:s]
       else
-        L[1:j*s+s,(j-1)*sh+1:j*sh] = L[1:j*s+s,(j-1)*sh+1:j*sh] + H[1:j*s+s,jms:jms-1+sh]*rho;
+        L[1:j*s+s,(j-1)*sh+1:j*sh] = L[1:j*s+s,(j-1)*sh+1:j*sh] + H[1:j*s+s,jms:jms-1+sh]*rho
       end
 
       odds = [odds; jms:(jms-1+sh)]   # store the odd block columns
@@ -203,11 +230,12 @@ function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Numb
 
       er2=[er2;sqrt2*vecnorm(cc*Y[js-s+1:js,:])/(nrmb+singE*nrma*nrmx)]
 
-      @printf("It: %d, Current relative residual norm: %10.5e \n",j,er2[j])
+      println("It: $j, Current relative residual norm: $(er2[j])")
 
       (er2[j]<tol) ? break : U = [U Up]
 
     end
+
     # Done
     # reduce solution rank if needed
     sY,uY=eig(Y)
@@ -225,10 +253,18 @@ function kpik(A::ScalarOrArray,B::ScalarOrArray,E=1;LE=1,m::Number=100,tol::Numb
 
     Y0 = uY[:,1:is]*diagm(sqrt(sY[1:is]))
     Z = LE'\(U[1:n,1:js]*Y0)
-    total_time=toq()
     er2=er2[1:j]
-    println("   its           comp.res.   space dim.   CPU Time\n")
-    @printf("%10.5e  %10.5e   %10.5e  %10.5e \n",j,er2[j],js,total_time)
+
+    if info
+      println("its           comp.res.   space dim.   CPU Time
+      $j           $(er2[j])   $js   $(toq())")
+      title("Plot of Scaled Residual")
+      ylabel("Residual")
+      xlabel("Iteration")
+      semilogy(er2, color="red", linewidth=2.0, linestyle="--")
+      show()
+    end
+
     return Z, er2
 
 end
@@ -244,9 +280,8 @@ end
 #
 ###############################################
 
-
-function rksm(A::ScalarOrArray,B::ScalarOrArray,E::ScalarOrArray=1;EL::ScalarOrArray=1,
-  s1::Number=NaN,emax::Number=NaN,m::Int=100,tol::Number=1e-9,ch::Bool=true,tolY::Number=1e-12)
+function rksm(A,B,E=1;EL=1,s1=NaN,emax=NaN,m=100,tol=1e-9,ch=true,tolY=1e-12,
+                                                                    info=true)
 # Based on rksm.m on Valeria Simoncini's website
 #
 # Approximately Solve
@@ -299,7 +334,7 @@ function rksm(A::ScalarOrArray,B::ScalarOrArray,E::ScalarOrArray=1;EL::ScalarOrA
 #
 @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
 
-tic()
+info && tic()
 
 const symm = norm(A-E-(A-E)',1) < 1e-14
 # If not symmetric, we may have complex poles.
@@ -308,22 +343,33 @@ symm ? (const typ = Float64) : (const typ = Complex{Float64})
 
 # If user does not give smallest generalized eigenvalue, calculate it
 if (isnan(s1))
-  (symm) && (s1 = eigmin(inv(E)*(-A)))
-  (!symm) && (s1 = minimum(abs(eigvals(inv(E)*(-A)))))
+  (symm) && (s1 = eigmin(inv(E)*full(-A)))
+  (!symm) && (s1 = minimum(abs(eigvals(inv(E)*full(-A)))))
 end
 
 # If user does not give largest generalized eigenvalue, calculate it
 if (isnan(emax))
-  (symm) && (emax = eigmax(inv(E)*(-A)))
-  (!symm) && (emax = maximum(abs(eigvals(inv(E)*(-A)))))
+  (symm) && (emax = eigmax(inv(E)*full(-A)))
+  (!symm) && (emax = maximum(abs(eigvals(inv(E)*full(-A)))))
 end
 
 if (E != 1 && EL == 1)
-  EL = cholfact(E)[:L]
+  if issparse(E)
+    LE = try
+          LE = sparse(cholfact(E,perm=1:size(E,1))[:L])
+        catch
+          error("E must be Symmetric Positive Definite")
+        end
+  else
+    LE = try
+          cholfact(E)[:L]
+        catch
+          error("E must be Symmetric Positive Definite")
+        end
+ end
 end
 
 const n=size(A,1)
-B=full(B)
 const p=size(B,2)
 const Iden=speye(p)
 const O=0*Iden
@@ -345,162 +391,163 @@ const nrma=vecnorm(A)
 
 
 if (vecnorm(E-speye(n))>1e-14)
-  const condestE=cond(E);
-  const singE=condestE/vecnorm(E);
+  const condestE=cond(E)
+  const singE=condestE/vecnorm(E)
 else
-  const singE=1;
+  const singE=1
 end
 
 
-newAv=EL\(A*(EL'\V));
+newAv=EL\(A*(EL'\V))
 
-K=V'*newAv;
-push!(s,s1);
+K=V'*newAv
+push!(s,s1)
 eH=eig(K)
 eHpoints = sort([s1,emax])
-snew=newpolei(eHpoints,eH[1],s1*uno',typ);
+snew=newpolei(eHpoints,eH[1],s1*uno',typ)
 
 if real(snew)<0
-   snew=-real(snew)+im*imag(snew);
+   snew=-real(snew)+im*imag(snew)
 end
-push!(s,snew);
+push!(s,snew)
 
 # additional steps
-cmplxflag=false;
+cmplxflag=false
 
-i=0;
+i=0
 local Y, j1s
 while i < m
   local i1, j1, js
-  i=i+1;
+  i=i+1
 
-  paired=0;
+  paired=0
   while (paired==0)
 
-    i1=i+1;
-    w=EL*V;
-    E==1 ? wrk = (A-snew*diagm(ones(n),0))\w : wrk = (A-snew*E)\w;
-    wrk= EL'*wrk;
+    i1=i+1
+    w=EL*V
+    #E==1 ? wrk = (A-snew*diagm(ones(n),0))\w : wrk = (A-snew*E)\w
+    E==1 ? wrk = (A-snew*speye(n))\w : wrk = (A-snew*E)\w
+    wrk= EL'*wrk
 
     # Gram-Schmidt step
-    jms=(i-1)*p+1;
-    j1s=(i+1)*p;
-    js=i*p;
-    js1=js+1;
+    jms=(i-1)*p+1
+    j1s=(i+1)*p
+    js=i*p
+    js1=js+1
     for it=1:2
       for kk=1:i
-        k1=(kk-1)*p+1;
-        k2=kk*p;
-        gamma=VV[1:n,k1:k2]'*wrk;
-        H[k1:k2,jms:js] = H[k1:k2,jms:js]+ gamma;
-        wrk = wrk - VV[:,k1:k2]*gamma;
+        k1=(kk-1)*p+1
+        k2=kk*p
+        gamma=VV[1:n,k1:k2]'*wrk
+        H[k1:k2,jms:js] = H[k1:k2,jms:js]+ gamma
+        wrk = wrk - VV[:,k1:k2]*gamma
       end
     end
 
-    V, H[js1:j1s,jms:js]=qr(wrk);
+    V, H[js1:j1s,jms:js]=qr(wrk)
 
     if (cmplxflag)
-      snew=conj(snew);
+      snew=conj(snew)
       push!(s,snew)
-      cmplxflag=false;
-      newAv=EL\(A*(EL'\V));
-      g = VV[1:n,1:js]'*newAv;
-      g1 = g;
-      g2 = V'*(EL\(A*(EL'\VV[1:n,1:js])));
-      g3 = V'*(EL\(A*(EL'\V)));
-      K = [K g1; g2 g3];
-      VV[1:n,js+1:j1s]=V;
-      i=i+1;
+      cmplxflag=false
+      newAv=EL\(A*(EL'\V))
+      g = VV[1:n,1:js]'*newAv
+      g1 = g
+      g2 = V'*(EL\(A*(EL'\VV[1:n,1:js])))
+      g3 = V'*(EL\(A*(EL'\V)))
+      K = [K g1; g2 g3]
+      VV[1:n,js+1:j1s]=V
+      i=i+1
     else
       paired=1
     end
   end
 
-  ih1=i1;
-  ih=i;
-  newAv=EL\(A*(EL'\V));
-  g = VV[1:n,1:js]'*newAv;
+  ih1=i1
+  ih=i
+  newAv=EL\(A*(EL'\V))
+  g = VV[1:n,1:js]'*newAv
 
   if (symm)
-    K=(K+K')/2;
+    K=(K+K')/2
   end
 
-  rhs2=speye(ih*p,p)*beta2*speye(ih*p,p)';
-  Y = lyap(K,rhs2);
-  nrmx = vecnorm(Y);
+  rhs2=speye(ih*p,p)*beta2*speye(ih*p,p)'
+  Y = lyap(K,rhs2)
+  nrmx = vecnorm(Y)
 
   # computed residual   (exact, in exact arithmetic)
-  u1=newAv-VV[1:n,1:js]*g;
-  d=-VV[1:n,1:js]*(Y*(H[1:ih*p,1:ih*p]'\[zeros(p*(ih-1),p);Iden])*H[p*ih+1:p*ih1,p*ih-p+1:p*ih]');
-  U=[-V*s[end]  d u1 ];
-  extra,rr=qr(full(U));
-  nrmres=vecnorm(rr*sparse([O Iden O; Iden O Iden; O Iden O ])*rr')/(nrmb+singE*nrma*nrmx);
-  nrmrestot=[nrmrestot; nrmres];
+  u1=newAv-VV[1:n,1:js]*g
+  d=-VV[1:n,1:js]*(Y*(H[1:ih*p,1:ih*p]'\[zeros(p*(ih-1),p);Iden])*H[p*ih+1:p*ih1,p*ih-p+1:p*ih]')
+  U=[-V*s[end]  d u1 ]
+  extra,rr=qr(full(U))
+  nrmres=vecnorm(rr*sparse([O Iden O; Iden O Iden; O Iden O ])*rr')/(nrmb+singE*nrma*nrmx)
+  push!(nrmrestot, nrmres)
 
   println([i,nrmres])
 
   (nrmres<tol) && break
 
   # New poles and zeros
-  eH=eig(K)[1];
+  eH=eig(K)[1]
   symm ? sort!(eH) : eH[sortperm(abs(eH))]
 
-  eHorig=eH;
+  eHorig=eH
 
    if (ch)
      # Complex poles. Compute set for next complex pole of r_m
 
       if (countnz(imag(eH))>0 && length(eH)>2) # Roots lambdas come from convex hull too
-        eH=full([eH;-emax]);
+        eH=full([eH;-emax])
         eH=convhull(eH)
-        ieH=length(eH);
-        missing=ih*p-ieH;
+        ieH=length(eH)
+        missing=ih*p-ieH
         while missing>0                        # include enough points from the border
-          neweH=(eH[1:ieH-1]+eH[2:ieH])/2;
-          missing=ih*p-length(eH);
-          eH=[eH;neweH];
+          neweH=(eH[1:ieH-1]+eH[2:ieH])/2
+          missing=ih*p-length(eH)
+          eH=[eH;neweH]
         end
-        eHpoints=-eH;
-        eH=eHorig;
+        eHpoints=-eH
+        eH=eHorig
       else     # if all real eigs, no convex hull possible
-        eHpoints = sort([s1; emax.';-real(eH)]);
+        eHpoints = sort([s1; emax.';-real(eH)])
       end
 
 
    else   # Real poles s from real set. Compute complex roots of r_m via Ritz convex hull
        if (countnz(imag(eH))>0 && length(eH)>2)    # Roots lambdas come from convex hull too
-         eH=full([eH;-s1;-emax.']);
+         eH=full([eH;-s1;-emax.'])
          eH=convhull(eH)
-         ieH=length(eH);
-         missing=ih*p-ieH;
+         ieH=length(eH)
+         missing=ih*p-ieH
          while missing>0 # include enough points from the border
-           neweH=(eH[1:ieH-1]+eH[2:ieH])/2;
-           eH=[eH;neweH];
-           missing=ih*p-length(eH);
+           neweH=(eH[1:ieH-1]+eH[2:ieH])/2
+           eH=[eH;neweH]
+           missing=ih*p-length(eH)
          end
-         eH=eH[1:ih*p];
+         eH=eH[1:ih*p]
        end
-        eHpoints = sort([s1; emax.';-real(eH)]);
-        eH=eHorig;
+        eHpoints = sort([s1; emax.';-real(eH)])
+        eH=eHorig
    end
 
-   gs=kron(s[2:i+1].',uno)';
+   gs=kron(s[2:i+1].',uno)'
 
-   snew = newpolei(eHpoints,eH,gs,typ);
+   snew = newpolei(eHpoints,eH,gs,typ)
    (real(snew)<0) && (snew=-real(snew)+im*imag(snew)); #safeguard strategy
 
    # If pole is complex, include its conjugate
-   (imag(snew) !=0) && (cmplxflag=true);
+   (imag(snew) !=0) && (cmplxflag=true)
 
    push!(s,snew)
 
-   g1 = g;
-   g2 = V'*(EL\(A*(EL'\VV[1:n,1:js])));
-   g3 = V'*(EL\(A*(EL'\V)));
-   K = [K g1; g2 g3];
-   VV[1:n,js+1:j1s]=V;
+   g1 = g
+   g2 = V'*(EL\(A*(EL'\VV[1:n,1:js])))
+   g3 = V'*(EL\(A*(EL'\V)))
+   K = [K g1; g2 g3]
+   VV[1:n,js+1:j1s]=V
 
-end;
+end
 
 # Done
 # Reduce rank of solution, if needed
@@ -520,10 +567,14 @@ end
 Y0 = uY[:,1:is]*diagm(sqrt(sY[1:is]))
 Z = EL'\(VV[:,1:size(Y0,1)]*Y0)
 
-RKStotal_time=toq();
+RKStotal_time=toq()
 
+println("Space dim $j1s  Solution rank $is  time $RKStotal_time")
 
-@printf("Space dim %d  Solution rank %d  time %10.5e \n",j1s,is,RKStotal_time);
+title("Plot of Scaled Residual")
+ylabel("Residual")
+xlabel("Iteration")
+semilogy(nrmrestot, color="red", linewidth=2.0, linestyle="--")
 return Z,nrmrestot
 
 end
@@ -544,7 +595,7 @@ r = Array(typ,length(x))
 
 for j=1:length(x)
   xj = x[j]*ones(length(s))
-  r[j]=abs(prod( (xj-s)./(xj-eH) ));
+  r[j]=abs(prod( (xj-s)./(xj-eH) ))
 end
 return r
 end
@@ -560,10 +611,10 @@ for j=1:length(eHpoints)-1
 
     jx = indmax(abs(ratfun(sval,eH,s,typ)))
 
-    snew[j]=sval[jx];
+    snew[j]=sval[jx]
 end
 jx=indmax(abs(ratfun(snew,eH,s,typ)))
-snew=snew[jx];
+snew=snew[jx]
 return snew
 end
 
@@ -574,10 +625,11 @@ end
 #
 #################################################
 
+@doc """'convexhull(pnts)'
+Based on code from (https://github.com/intdxdt/convexhull.jl)
+Function to compute 2-D convex hull
+""" ->
 function convhull(pnts)
-    #Based on code from (https://github.com/intdxdt/convexhull.jl)
-
-    # Function to compute 2-D convex hull
     const T = eltype(pnts) #get point type
     const N = length(pnts) #number of pnts
     # sort the points lexicographically.
@@ -637,7 +689,7 @@ end
 
 #less than comparator
 function lt2d(a, b)
-    dx, dy =  real(a - b), imag(a - b);
+    dx, dy =  real(a - b), imag(a - b)
     dx != 0 &&  (return <(dx, 0))
     return <(dy, 0)
 end
@@ -661,227 +713,225 @@ end
 #############################################################
 
 
-function lp_lradi(A::ScalarOrArray,B::ScalarOrArray,p::ScalarOrArray;Bf::ScalarOrArray=[],Kf::ScalarOrArray=[],K::ScalarOrArray=[],max_it::Int=100,
-  tp::AbstractString="B",zk::AbstractString="Z",rc::AbstractString="C",
-  min_res::Number=1e-6,with_rs::AbstractString="S",min_in::Number=0,info::Bool=true)
-#
-#  Based on lp_lradi.m from LYAPACK 1.0
-#
-#  Low Rank Cholesky Factor Alternating Direction Implicit (LRCF-ADI) Method for
-#  solving the stable Lyapunov equation:
-#
-#    For tp = "B":
-#
-#      F * X + X * F' = -B*B',
-#
-#    for tp = "C":
-#
-#      F' * X + X * F = -B'*B,
-#
-#  where F = A-Bf*Kf'.
-#
-#  The routine works in two modes (depending on the choice of zk):
-#
-#    For zk = "Z", this routine deliveres a low rank factor Z,
-#    such that Z*Z' approximates X;
-#
-#    for zk = "K", it only generates the product K_out = Z*Z'*K
-#    without forming Z itself.
-#
-#
-#  Input:
-#
-#    A         matrix A
-#    B         matrix B (n-x-m if tp="B" or m-x-n if tp="C",
-#              where  m << n !);
-#    p         l-vector with ADI shift parameters. Complex parameters must
-#              appear as conjugate complex pairs in consecutive order.
-#              If more than length(p) iterations need to be done, the
-#              parameters p[i] are reused in a cyclic manner. The user can calculate
-#              these values using lp_para.
-#    Bf        "feedback" matrix Bf;
-#              Named argument with defult value [], so if not provided by user,
-#              the code solves
-#              A * X + X * A' = -B*B' or A' * X + X * A = -B'*B
-#              depending on choice of tp.
-#    Kf        "feedback" matrix Kf;
-#              amed argument with defult value [], so if not provided by user,
-#              the code solves
-#              A * X + X * A' = -B*B' or A' * X + X * A = -B'*B
-#              depending on choice of tp.
-#    tp        (= "B" or "C") named argument that determines the type of Lyapunov equation. Defult value is "B"
-#    zk        (= "Z" or "K") named argument that determines whether Z or K_out should be
-#              computed. Defult value is "Z"
-#    rc        (= "R" or "C") named argument that determines whether the low rank factor Z
-#              must be real ("R") or if complex factors are allowed ("C");
-#              If p contains complex parameters, then the low rank factor
-#              Z is complex, too, although Z*Z' is real. A real low rank
-#              factor is determined from the complex data, if rc = "R".
-#              However, this requires some additional computation.
-#              If zk = "K", rc is ignored. Defult value is "C".
-#    K         named argument n-x-r matrix (where r should be small: r << n !).
-#              Defult value is [].
-#    max_it    stopping criterion: maximal number of LRCP-ADI steps
-#              Set to [] or +Inf (default) to avoid this criterion. Named argument
-#              With defult value of 100.
-#    min_res   stopping criterion: minimal relative residual norm. The
-#              iteration is stopped when res(i+1) <= min_res (See Remarks).
-#              Set min_res = [] or 0 (default) to avoid this criterion. Note:
-#              If min_res<=0 and with_rs="N", the (often expensive) calculation
-#              of the residual norm is avoided, but, of course, res is not
-#              provided on exit. Named argument with defult value of 1e-6.
-#    with_rs   (= "S" or "N") if with_rs = "S", the iteration is stopped,
-#              when the routine detects a stagnation of the residual norms,
-#              which is most likely the case, when roundoff errors rather
-#              than the approximation error start to dominante the residual
-#              norm. This implies that the residual norms are computed (which
-#              can be expensive). This criterion works quite well in practice,
-#              but is not absolutely sure. Use with_rs = "S" only if you
-#              want to compute the Lyapunov solution as accurate as possible
-#              (for a given machine precision).
-#              If with_rs = "N", this criterion is not used. Named argument with
-#              defult value "S".
-#    min_in    stopping criterion: This value limits the "minimal increase"
-#              in the matrix Z by the "new" columns . The iteration is
-#              terminated as soon as
-#
-#                || Z_nc ||_F^2 < min_in * || Z_new ||_F^2
-#
-#              holds for a certain number of consecutive iteration steps.
-#              Here, Z_nc are the currently computed "new" colums, which
-#              appended to the old iterate Z_old deliver the new iterate
-#              Z_new  = [ Z_old  Z_nc ]. Set min_in = 0 to avoid it.
-#              Default value is eps, the machine precision. min_in = []
-#              has the same effect. Note that this is an "adaptive"
-#              stopping criterion which does not require the
-#              (often expensive) computation of the residual norm. Named argument
-#              with defult value 0.
-#    info      Bool: Return information given during the
-#              iteration. Named argument with default value true.
-#
-#  Output:
-#
-#    Z         Z*Z' is a low rank approximation of X;
-#              (Note that Z can be complex if rc="C"!)
-#    flag      the criterion which had stopped the iteration:
-#               = "I": max_it,
-#               = "R": min_res,
-#               = "S": with_rs,
-#               = "N": min_in,
-#    res       the relative residual norms attained in the course of
-#              the iterations (res[i+1] is the norm after the i-th step
-#              of the iteration!). See note in min_res.
-#
-#  Remarks:
-#
-#    1. Note on the choice of zk, in case only Z*Z'*K and not Z*Z' is
-#    sought: zk = "K" can save much memory in some situations. But the amount
-#    of computation is mostly not less than in the first mode, which should be
-#    considered as the standard mode. zk = "Z" has several advantages:
-#    there are more stopping criteria available, the computation of the
-#    residual norm is possible. In contrast, there is no secure way to
-#    verify that the computed matrix K_out indeed approximates the exact
-#    matrix X*K in the second mode. So, in general, you should use the
-#    first mode, even if you are only interested in X*K instead of X itself.
-#
-#    2. The eigenvalues of F must have negative real parts.
-#
-#    3. The values in res correspond to the following "relative" norms
-#
-#      tp = "B":
-#        res(i+1) = ||F*Z_i*Z_i'+Z_i*Z_i'*F'+B*B'||_F/||B*B'||_F
-#
-#      tp = "C":
-#        res(i+1) = ||F'*Z_i*Z_i'+Z_i*Z_i'*F+B'*B||_F/||B'*B||_F
-#
-#    4. Note that all stopping criteria are checked only after a step
-#    with a real parameter or a "double step" with a pair of conjugate
-#    complex parameters. This ensures that Z*Z' is real, even if Z is
-#    not.
-#
-#  References:
-#
-#    The algorithm is a slight modifivation of that proposed in:
-#
-#  [1] J.Li, F.Wang, and J.White.
-#      An efficient Lyapunov equation based approach for generating
-#      reduced-order models of interconnect.
-#      Proceedings of the 36th IEEE/ACM Design Automation Conference,
-#      New Orleans, LA, 1999.
-#
-#    Another (though more expensive) low rank algorithm is proposed in:
-#
-#  [2] T. Penzl.
-#      A cyclic low rank Smith method for large sparse Lyapunov equations.
-#      To appear in SIAM Sci. Comp.
-#
-#    See also:
-#
-#  [3] P. Benner, J. Li, and T. Penzl
-#      Numerical solution of large Lyapunov equations, Riccati equations,
-#      and linear-quadratic optimal control problems.
-#      In preparation.
-#
-#  [4] T. Penzl.
-#      LYAPACK (Users' Guide - Version 1.0).
-#      1999.
+"""
+Based on lp_lradi.m from LYAPACK 1.0
 
+Low Rank Cholesky Factor Alternating Direction Implicit (LRCF-ADI) Method for
+solving the stable Lyapunov equation:
 
-# Internal remarks:
-# =================
+  For tp = :B
 
-# Input data not completely checked!
+    F * X + X * F' = -B * B',
 
-# The procedure to generate real factors in case of complex parameters is
-# different from that in [3]!
+  for tp = :C
 
-# The matrices SMi (i = 1:length(p)) for the "Sherman-Morrison trick"
-# (only used if Bf and Kf are nonzero) are computed a priori, which
-# is good in view of computation if parameters p(i) are used cyclically,
-# but may be sometimes bad in view of memory demand, in particular, when
-# length(p) is large.
-#
+    F' * X + X * F = -B' * B,
 
-# The stopping criterion related to the input parameter with_rs
-# corresponds to the stagnation of the residual curve caused by
-# round-off errors. Its performance depends on the constants stcf and
-# min_rs. The iteration is stopped, as soon as
-#
-#   (ra-rb)*(i-stcf+1) / ((r(1)-ra)*stcf) < min_rs
-#
-# and r(1)-ra > 0 and i >= stcf hold for stcf consecutive iteration
-# steps. Here res(i+1) is the residual norm after the i-th LRCF-ADI step,
-# r(i+1) = log(res(i+1)), ra = min(r(1:i-stcf+1)), rb = min(r(i-stcf+2:i+1)).
-#
-# stcf is also the number of consecutive steps, for which the criterion
-# w.r.t. min_in must be fulfilled.
-#
+where F = A-Bf*Kf'.
+
+The routine works in two modes (depending on the choice of zk)
+
+    For zk = :Z, this routine deliveres a low rank factor Z,
+    such that Z * Z' approximates X
+
+    for zk = :K, it only generates the product K_out = Z * Z'* K
+    without forming Z itself.
+
+ Input:
+
+    A         matrix A
+    B         matrix B (n-x-m if tp=:B or m-x-n if tp=:C,
+              where  m << n !)
+    p         l-vector with ADI shift parameters. Complex parameters must
+              appear as conjugate complex pairs in consecutive order.
+              If more than length(p) iterations need to be done, the
+              parameters p[i] are reused in a cyclic manner. The user can calculate
+              these values using lp_para.
+    Bf        "feedback" matrix Bf
+              Named argument with defult value [], so if not provided by user,
+              the code solves
+              A * X + X * A' = -B * B' or A' * X + X * A = -B'* B
+              depending on choice of tp.
+    Kf        "feedback" matrix Kf
+              amed argument with defult value [], so if not provided by user,
+              the code solves
+              A * X + X * A' = -B * B' or A' * X + X * A = -B' * B
+              depending on choice of tp.
+    tp        (= :B or :C) named argument that determines the type of Lyapunov equation. Defult value is :B
+    zk        (= :Z or :K) named argument that determines whether Z or K_out should be
+              computed. Defult value is :Z
+    rc        (= :R or :C) named argument that determines whether the low rank factor Z
+              must be real (:R) or if complex factors are allowed (:C)
+              If p contains complex parameters, then the low rank factor
+              Z is complex, too, although Z * Z' is real. A real low rank
+              factor is determined from the complex data, if rc = :R.
+              However, this requires some additional computation.
+              If zk = :K, rc is ignored. Defult value is :C.
+    K         named argument n-x-r matrix (where r should be small: r << n !).
+              Defult value is [].
+    max_it    stopping criterion: maximal number of LRCP-ADI steps
+              Set to [] or +Inf (default) to avoid this criterion. Named argument
+              With defult value of 100.
+    min_res   stopping criterion: minimal relative residual norm. The
+              iteration is stopped when res(i+1) <= min_res (See Remarks).
+              Set min_res = [] or 0 (default) to avoid this criterion. Note:
+              If min_res<=0 and with_rs=:N, the (often expensive) calculation
+              of the residual norm is avoided, but, of course, res is not
+              provided on exit. Named argument with defult value of 1e-6.
+    with_rs   (= :S or :N) if with_rs = "S", the iteration is stopped,
+              when the routine detects a stagnation of the residual norms,
+              which is most likely the case, when roundoff errors rather
+              than the approximation error start to dominante the residual
+              norm. This implies that the residual norms are computed (which
+              can be expensive). This criterion works quite well in practice,
+              but is not absolutely sure. Use with_rs = "S" only if you
+              want to compute the Lyapunov solution as accurate as possible
+              (for a given machine precision).
+              If with_rs = :N, this criterion is not used. Named argument with
+              defult value :S.
+    min_in    stopping criterion: This value limits the "minimal increase"
+              in the matrix Z by the "new" columns . The iteration is
+              terminated as soon as
+
+                || Z_nc ||F^2 < min_in * || Z_new ||F^2
+
+              holds for a certain number of consecutive iteration steps.
+              Here, Z_nc are the currently computed "new" colums, which
+              appended to the old iterate Z_old deliver the new iterate
+              Z_new  = [ Z_old  Z_nc ]. Set min_in = 0 to avoid it.
+              Default value is eps, the machine precision. min_in = []
+              has the same effect. Note that this is an "adaptive"
+              stopping criterion which does not require the
+              (often expensive) computation of the residual norm. Named argument
+              with defult value 0.
+    info      Bool: Return information given during the
+              iteration. Named argument with default value true.
+
+  Output:
+
+    Z         Z * Z' is a low rank approximation of X
+              (Note that Z can be complex if rc=:C!)
+    flag      the criterion which had stopped the iteration:
+               = "I": max_it,
+               = "R": min_res,
+               = "S": with_rs,
+               = "N": min_in,
+    res       the relative residual norms attained in the course of
+              the iterations (res[i+1] is the norm after the i-th step
+              of the iteration!). See note in min_res.
+
+Remarks:
+
+    1. Note on the choice of zk, in case only Z * Z' * K and not Z * Z' is
+    sought: zk = :K can save much memory in some situations. But the amount
+    of computation is mostly not less than in the first mode, which should be
+    considered as the standard mode. zk = :Z has several advantages:
+    there are more stopping criteria available, the computation of the
+    residual norm is possible. In contrast, there is no secure way to
+    verify that the computed matrix K_out indeed approximates the exact
+    matrix X*K in the second mode. So, in general, you should use the
+    first mode, even if you are only interested in X * K instead of X itself.
+
+    2. The eigenvalues of F must have negative real parts.
+
+    3. The values in res correspond to the following "relative" norms
+
+      tp = :B
+
+        res(i+1) = ||F * Z_i * Z_i' + Z_i * Z_i' * F' + B * B'||F/|| B * B'||F
+
+      tp = :C
+
+        res(i+1) = ||F' * Z_i * Z_i' + Z_i * Z_i' * F + B' * B||F/||B' * B||F
+
+    4. Note that all stopping criteria are checked only after a step
+    with a real parameter or a "double step" with a pair of conjugate
+    complex parameters. This ensures that Z*Z' is real, even if Z is
+    not.
+
+References:
+
+    The algorithm is a slight modifivation of that proposed in:
+
+    1. J.Li, F.Wang, and J.White.
+    An efficient Lyapunov equation based approach for generating
+    reduced-order models of interconnect.
+    Proceedings of the 36th IEEE/ACM Design Automation Conference,
+    New Orleans, LA, 1999.
+
+    Another (though more expensive) low rank algorithm is proposed in:
+
+    2. T. Penzl.
+    A cyclic low rank Smith method for large sparse Lyapunov equations.
+    To appear in SIAM Sci. Comp.
+
+    See also:
+
+    3. P. Benner, J. Li, and T. Penzl
+    Numerical solution of large Lyapunov equations, Riccati equations,
+    and linear-quadratic optimal control problems.
+    In preparation.
+
+    4. T. Penzl.
+    LYAPACK (Users' Guide - Version 1.0).
+    1999.
+
+Internal remarks:
+
+    Input data not completely checked!
+
+    The procedure to generate real factors in case of complex parameters is
+    different from that in [3]!
+
+    The matrices SMi (i = 1:length(p)) for the "Sherman-Morrison trick"
+    (only used if Bf and Kf are nonzero) are computed a priori, which
+    is good in view of computation if parameters p(i) are used cyclically,
+    but may be sometimes bad in view of memory demand, in particular, when
+    length(p) is large.
+
+    The stopping criterion related to the input parameter with_rs
+    corresponds to the stagnation of the residual curve caused by
+    round-off errors. Its performance depends on the constants stcf and
+    min_rs. The iteration is stopped, as soon as
+
+    (ra-rb) * (i-stcf+1) / ((r(1)-ra) * stcf) < min_rs
+
+    and r(1)-ra > 0 and i >= stcf hold for stcf consecutive iteration
+    steps. Here res(i+1) is the residual norm after the i-th LRCF-ADI step,
+    r(i+1) = log(res(i+1)), ra = min(r(1:i-stcf+1)), rb = min(r(i-stcf+2:i+1)).
+
+    stcf is also the number of consecutive steps, for which the criterion
+    w.r.t. min_in must be fulfilled.
+"""
+function lp_lradi(A,B,p;Bf=[],Kf=[],K=[],max_it=100,tp=:B,zk=:Z,rc=:C,
+  min_res=1e-6,with_rs=:S,min_in=0,info=true)
+
 tic()
-const stcf = 10;
-const min_rs = .1;
+const stcf = 10
+const min_rs = .1
 
-(zk!="Z" && zk!="K") && error("zk must be either ''Z'' or ''K''.");
-(tp!="B" && tp!="C") && error("tp must be either ''B'' or ''C''.");
-(rc!="R" && rc!="C") && error("rc must be either ''R'' or ''C''.");
+(zk!=:Z && zk!=:K) && error("zk must be either :Z or :K.")
+(tp!=:B && tp!=:C) && error("tp must be either :B or :C.")
+(rc!=:R && rc!=:C) && error("rc must be either :R or :C.")
 
-const compute_K = (zk=="K");
-
+const compute_K = (zk==:K)
+const tpB = (tp == :B)
 if compute_K
-  const with_norm = false;
-  const with_min_rs = false;
-  const K_is_real = (imag(K)==0);
+  const with_norm = false
+  const with_min_rs = false
+  const K_is_real = (imag(K)==0)
 else
-  const with_min_rs = (with_rs=="S");
-  const with_norm = (min_res>0)||with_min_rs;
-  const make_real = (rc=="R");
+  const with_min_rs = (with_rs==:S)
+  const with_norm = (min_res>0)||with_min_rs
+  const make_real = (rc==:R)
 end
-const with_min_in = min_in>0;
+const with_min_in = min_in>0
 
-const with_BK = !isempty(Bf);
+const with_BK = !isempty(Bf)
 
-const l = length(p);
+const l = length(p)
 
-if tp=="B"
+if tpB
   const n,m = size(B)
 else
   const m,n = size(B)
@@ -893,15 +943,15 @@ LP_U = Array(Complex{Float64},size(A)...,l)
 #LL,UU,~=lu(A,Val{false})
 #invUU=inv(UU)
 for i = 1:l
-  LP_L[:,:,i],LP_U[:,:,i],~=lu(full(A+p[i]*Ide),Val{false});
+  LP_L[:,:,i],LP_U[:,:,i],~=lu(full(A+p[i]*Ide),Val{false})
   #LP_L[:,:,i] = LL+p[i]*invUU
   #LP_U[:,:,i] = UU
 end
 
 if with_BK
   SM=Array(Complex{Float64},size(Bf)...,l)
-  Im = speye(size(Bf,2));
-  if tp=="B"
+  Im = speye(size(Bf,2))
+  if tpB
     # SMi = TM*inv(I-Kf'*TM),
     # where TM = inv(F+p(i)*I)*Bf
     # (These are the columns of the LR terms for the
@@ -909,35 +959,35 @@ if with_BK
     # in the Sherman-Morrison formulae.)
 
     for i = 1:l
-      TM = LP_U[:,:,i]\(LP_L[:,:,i]\Bf);
-      SM[:,:,i] = TM/(Im-Kf'*TM);
+      TM = LP_U[:,:,i]\(LP_L[:,:,i]\Bf)
+      SM[:,:,i] = TM/(Im-Kf'*TM)
     end
-  else  # tp=="C"
+  else  # tp==:C
     # SMi = TM*inv(I-Bf'*TM),
     # where TM = inv(F.'+p(i)*I)*Kf
     # (These are the columns of the LR terms for the
     # rank corrections of the "inverse"
     # in the Sherman-Morrison formulae.)
     for i = 1:l
-      TM = LP_L[:,:,i].'\(LP_U[:,:,i].'\Kf);
-      SM[:,:,i] = TM/(Im-Bf'*TM);
+      TM = LP_L[:,:,i].'\(LP_U[:,:,i].'\Kf)
+      SM[:,:,i] = TM/(Im-Bf'*TM)
     end
   end
 end
 
 # Initialize QR factorization for norm computation
 if with_norm
-  res0,nrmQ,nrmR,nrmbs = lp_nrmu(A,B,Bf,Kf,tp,[],[],[],[]);
-  res = [1.];
-  res_log = [log(res0)];
-  # Vector containing log of residual norms;
+  res0,nrmQ,nrmR,nrmbs = lp_nrmu(A,B,Bf,Kf,tpB,[],[],[],[])
+  res = [1.]
+  res_log = [log(res0)]
+  # Vector containing log of residual norms
   # corresponds to r(:) in prolog.
 end
 
-flag = "I";
+flag = "I"
 if with_min_in
-  nrmF_Z_2 = 0;
-  nrmF_rec = +Inf*ones(stcf,1);
+  nrmF_Z_2 = 0
+  nrmF_rec = +Inf*ones(stcf,1)
   # Current squared Frobenius norm of Z
   # Records the values of
   # ||Z_nc||_F^2 / ||Z_new||_F^2 (see prolog)
@@ -956,27 +1006,27 @@ for i = 1:max_it       # The iteration itself
 
   if i==1
 
-    if tp=="B"
+    if tpB
       # V = last columns of Cholesky factor Z
       # Initialize:
       # V := sqrt(-2*real(p[1]))*inv(F+p[1]*I)*B
 
-      V=LP_U[:,:,1]\(LP_L[:,:,1]\B);
+      V=LP_U[:,:,1]\(LP_L[:,:,1]\B)
       with_BK && (V = V+SM[:,:,1]*(Kf'*V))
-      V = sqrt(-2*real(p[1]))*V;
+      V = sqrt(-2*real(p[1]))*V
 
-    else #( tp = "C" )
+    else #( tp = :C )
       # Initialize:
       # V := sqrt(-2*real(p[1]))*inv(F.'+p[1]*I)*B'
 
       V = LP_L[:,:,1].'\(LP_U[:,:,1].'\B')
       with_BK && (V = V+SM[:,:,1]*(Bf'*V))
-      V = sqrt(-2*real(p[1]))*V;
+      V = sqrt(-2*real(p[1]))*V
     end
 
     if compute_K
 
-      Z = V*(V'*K);
+      Z = V*(V'*K)
       # Caution: the physical variable Z contains the
       # "logical" variable K ("feedback iterate") in the
       # case, when only K_out is sought (zk = "K").
@@ -990,67 +1040,67 @@ for i = 1:max_it       # The iteration itself
 
   else # i > 1
 
-    p_old = p[i_p];
+    p_old = p[i_p]
 
-    i_p = i_p+1;
+    i_p = i_p+1
     i_p>l && (i_p = 1)    # update current parameter index
 
     if is_compl && is_first
-      is_first = false;
+      is_first = false
       if i_p==1
         error("Parameter sequence ends in the 'middle' of a complex pair!")
       end
       if p[i_p]!=conj(p_old)
-        error("Parameters p[i] must be either real or pairs of conjugate complex numbers.");
+        error("Parameters p[i] must be either real or pairs of conjugate complex numbers.")
       end
     else
-      is_compl = imag(p[i_p])!=0;
-      is_first = true;
+      is_compl = imag(p[i_p])!=0
+      is_first = true
     end
 
-    if tp=="B"
+    if tpB
       # Evaluate
       #   V := sqrt(real(p[i_p])/real(p_old))*...
       #        (V-(p[i_p]+conj(p_old))*inv(F+p[i_p]*I)*V)
 
-      TM = LP_U[:,:,i_p]\(LP_L[:,:,i_p]\V);
+      TM = LP_U[:,:,i_p]\(LP_L[:,:,i_p]\V)
       with_BK && (TM = TM+SM[:,:,i_p]*(Kf'*TM))
-      TM = V-(p[i_p]+conj(p_old))*TM;
-      V = sqrt(real(p[i_p])/real(p_old))*TM;
+      TM = V-(p[i_p]+conj(p_old))*TM
+      V = sqrt(real(p[i_p])/real(p_old))*TM
 
-    else   #  tp=="C"
+    else   #  tp==:C
 
       # Evaluate
       #   V := sqrt(real(p[i_p])/real(p_old))*...
       #        (V-(p[i_p]+conj(p_old))* inv(F.'+p[i_p]*I)*V)
 
-      TM = LP_L[:,:,i_p].'\(LP_U[:,:,i_p].'\V);
-      with_BK && (TM = TM+SM[:,:,i_p]*(Bf'*TM));
-      TM = V-(p[i_p]+conj(p_old))*TM;
-      V = sqrt(real(p[i_p])/real(p_old))*TM;
+      TM = LP_L[:,:,i_p].'\(LP_U[:,:,i_p].'\V)
+      with_BK && (TM = TM+SM[:,:,i_p]*(Bf'*TM))
+      TM = V-(p[i_p]+conj(p_old))*TM
+      V = sqrt(real(p[i_p])/real(p_old))*TM
     end
 
     if compute_K
       # Form new iterate K in case
       # that only Z*Z'*K is sought.
-      Z = Z+V*(V'*K);
+      Z = Z+V*(V'*K)
 
     else
       # Form new iterate Z.
 
       !is_compl && (V = real(V))
 
-      Z = [Z V];
+      Z = [Z V]
 
       # Make last 2*m columns real.
       if make_real && is_compl && !is_first
         for j = (i-1)*m+1:i*m
-          U1,S1,V1 = svd([real(Z[:,j-m]) real(Z[:,j]) imag(Z[:,j-m]) imag(Z[:,j])]);
+          U1,S1,V1 = svd([real(Z[:,j-m]) real(Z[:,j]) imag(Z[:,j-m]) imag(Z[:,j])])
           S1 = diagm(S1)
-          U2,S2,V2 = svd(V1[1:2,1:2]'*V1[1:2,1:2]+V1[3:4,1:2]'*V1[3:4,1:2],thin=false);
-          TMP = U1[:,1:2]*S1[1:2,1:2]*U2*diagm(sqrt(S2));
-          Z[:,j-m] = TMP[:,1];
-          Z[:,j] = TMP[:,2];
+          U2,S2,V2 = svd(V1[1:2,1:2]'*V1[1:2,1:2]+V1[3:4,1:2]'*V1[3:4,1:2],thin=false)
+          TMP = U1[:,1:2]*S1[1:2,1:2]*U2*diagm(sqrt(S2))
+          Z[:,j-m] = TMP[:,1]
+          Z[:,j] = TMP[:,2]
         end
       end
 
@@ -1062,15 +1112,12 @@ for i = 1:max_it       # The iteration itself
   if with_norm
     # Compute residual norm
 
-    resnrm,nrmQ,nrmR,nrmbs = lp_nrmu( A, B, Bf, Kf, tp, V, nrmQ, nrmR, nrmbs);
-    push!(res_log, log(resnrm));
-    akt_res = resnrm/res0;
-    push!(res, akt_res);
+    resnrm,nrmQ,nrmR,nrmbs = lp_nrmu( A, B, Bf, Kf, tpB, V, nrmQ, nrmR, nrmbs)
+    push!(res_log, log(resnrm))
+    akt_res = resnrm/res0
+    push!(res, akt_res)
 
-    if info
-      @printf("LRCF-ADI step %d -- norm. residual = %e",i,akt_res);
-      print("\n")
-    end
+    info && println("LRCF-ADI step $i -- norm. residual = $akt_res")
 
     # After pair of complex parameters or
     # a real parameter, check stopping criteria
@@ -1078,16 +1125,16 @@ for i = 1:max_it       # The iteration itself
     if  !(is_compl && is_first)
 
       if akt_res <= min_res
-        flag = "R";
-        break;
+        flag = "R"
+        break
       end
 
       if with_min_rs && i>=2*stcf
-        ra = minimum(res_log[1:i-stcf+1]);
-        rb = minimum(res_log[i-stcf+2:i+1]);
+        ra = minimum(res_log[1:i-stcf+1])
+        rb = minimum(res_log[i-stcf+2:i+1])
         if res_log[1]-ra > 0 && (ra-rb)*(i-stcf+1)/((res_log[1]-ra)*stcf) < min_rs
-          flag = "S";
-          break;
+          flag = "S"
+          break
         end
       end
 
@@ -1097,20 +1144,24 @@ for i = 1:max_it       # The iteration itself
   # Check stopping criteria based on increase in ||Z_i||_F.
   if with_min_in
     nrmF_V_2 = sum(sum(abs(V).*abs(V)));    # Note the "abs"; V is complex.
-    nrmF_Z_2 = nrmF_Z_2 + nrmF_V_2;
-    nrmF_rec[1:stcf-1] = nrmF_rec[2:stcf];
-    nrmF_rec[stcf] = nrmF_V_2/nrmF_Z_2;
+    nrmF_Z_2 = nrmF_Z_2 + nrmF_V_2
+    nrmF_rec[1:stcf-1] = nrmF_rec[2:stcf]
+    nrmF_rec[stcf] = nrmF_V_2/nrmF_Z_2
     if !(is_compl && is_first) && i>stcf && all(nrmF_rec .< min_in)
-      flag = "N";
-      break;
+      flag = "N"
+      break
     end
   end
 end
 
 if compute_K && K_is_real
-   Z = real(Z);
+   Z = real(Z)
 end
 println(toq())
+title("Plot of Scaled Residual")
+ylabel("Residual")
+xlabel("Iteration")
+semilogy(res, color="red", linewidth=2.0, linestyle="--")
 Z, flag, res
 end
 
@@ -1123,18 +1174,18 @@ end
 #
 ############################################################
 
-function lp_nrmu( A, B, Bf, Kf, tp, V, nrmQ, nrmR, nrmbs )
+function lp_nrmu( A, B, Bf, Kf, tpB, V, nrmQ, nrmR, nrmbs )
 #
 #  Based on lp_nrmu.m from LYAPACK 1.0
 #
 #  Using updated QR factorizations, this routine computes efficiently
 #  a sequence of norms which correspond to either of the following types:
 #
-#  for tp = "B":
+#  for tp = :B
 #
 #    nrm = || F*Z_i*Z_i' + Z_i*Z_i'*F' + B*B' ||_F,
 #
-#  for tp = "C":
+#  for tp = :C
 #
 #    nrm = || F'*Z_i*Z_i' + Z_i*Z_i'*F + B'*B ||_F.
 #
@@ -1148,17 +1199,17 @@ function lp_nrmu( A, B, Bf, Kf, tp, V, nrmQ, nrmR, nrmbs )
 #  Calling sequence:
 #
 #    nrm, nrmQ, nrmR, nrmbs = ...
-#    lp_nrmu(  A, B, Bf, Kf, tp, V, nrmQ, nrmR, nrmbs )
+#    lp_nrmu(  A, B, Bf, Kf, tpB, V, nrmQ, nrmR, nrmbs )
 #
 #  Input:
 #
-#    tp        (= "B" or "C") the type of the norm;
-#    Bf        real matrix Bf;
+#    tpB        (= true or false) the type of the norm
+#    Bf        real matrix Bf
 #              Set Bf = [] if not existing or zero!
-#    Kf        real matrix Kf;
+#    Kf        real matrix Kf
 #              Set Kf = [] if not existing or zero!
-#    B         n-x-m or m-x-n matrix B (must be real);
-#    V         n-x-r matrix V (may be complex);
+#    B         n-x-m or m-x-n matrix B (must be real)
+#    V         n-x-r matrix V (may be complex)
 #    nrmQ,
 #    nrmR,
 #    nrmbk     variables for internal use (they contain the data of
@@ -1189,17 +1240,17 @@ function lp_nrmu( A, B, Bf, Kf, tp, V, nrmQ, nrmR, nrmbs )
 #    Example:
 #
 #      ...
-#      nrm,nrmQ,nrmR,nrmbs = lp_nrmu(A,B,[],[],"B",[],[],[],[]);
+#      nrm,nrmQ,nrmR,nrmbs = lp_nrmu(A,B,[],[],tpB,[],[],[],[])
 #      ...
-#      Z = zeros(n,0);
+#      Z = zeros(n,0)
 #      ...
 #      for i = 1:100
 #        ...
-#        V = ...;
+#        V = ...
 #        ...
 #        Z = [ Z V ];    # iteration:  Z_i = [ Z_i-1 V ]
 #        ...
-#        nrm,nrmQ,nrmR,nrmbs = lp_nrmu(A,B,[],[],"B",V,nrmQ,nrmR,nrmbs);
+#        nrm,nrmQ,nrmR,nrmbs = lp_nrmu(A,B,[],[],tpB,V,nrmQ,nrmR,nrmbs)
 #        ...
 #      end
 #      ...
@@ -1207,7 +1258,7 @@ function lp_nrmu( A, B, Bf, Kf, tp, V, nrmQ, nrmR, nrmbs )
 
 # Input data not completely checked!
 
-const with_BK = length(Bf)>0;
+const with_BK = length(Bf)>0
 
 const n= size(A,1);                    # Get system order.
 
@@ -1216,66 +1267,64 @@ if isempty(V)
   # 'outside' is started (i.e. V = zeros(n,0) or []!)) in order to
   # initialize the QR factorization nrmQ*nrmR correctly.
 
-  if tp=="B"
-    nrmbs = [size(B,2)];
-    nrmQ,nrmR = qr(B);
+  if tpB
+    nrmbs = [size(B,2)]
+    nrmQ,nrmR = qr(B)
   else
-    nrmbs = [size(B,1)];
-    nrmQ,nrmR = qr(B');
+    nrmbs = [size(B,1)]
+    nrmQ,nrmR = qr(B')
   end
-  nrm = vecnorm(nrmR*nrmR');
+  nrm = vecnorm(nrmR*nrmR')
 
 else
   # The routine is called during the iteration 'outside'.
   # The QR factorization is updated and the norm is computed.
 
   # Update of the QR factorization.
-  push!(nrmbs,size(V,2));
-  lw = size(nrmQ,2);
-  lz = size(V,2);
+  push!(nrmbs,size(V,2))
+  lw = size(nrmQ,2)
+  lz = size(V,2)
 
-  if tp=="B"
-    TM = A*V;
-    with_BK && (TM = TM-Bf*(Kf'*V));
-    Z = [ TM V ];
+  if tpB
+    TM = A*V
+    with_BK && (TM = TM-Bf*(Kf'*V))
+    Z = [ TM V ]
   else
-    TM = A'*V;
-    with_BK && (TM = TM-Kf*(Bf'*V));
-    Z = [ TM V ];
+    TM = A'*V
+    with_BK && (TM = TM-Kf*(Bf'*V))
+    Z = [ TM V ]
   end
 
   for j = 1:2*lz
-    a = Array(Complex{Float64},lw,1);
+    a = Array(Complex{Float64},lw,1)
     #a = complex(zeros(lw,1))
-    t = Z[:,j];
+    t = Z[:,j]
     for k = 1:lw
-      u = nrmQ[:,k];
-      alpha = dot(u,t);
-      t = t-alpha*u;
-      a[k] = alpha[1];
+      u = nrmQ[:,k]
+      alpha = dot(u,t)
+      t = t-alpha*u
+      a[k] = alpha[1]
     end
-    beta = norm(t);
+    beta = norm(t)
     nrmQ = [nrmQ t/beta]
-    #nrmQ = push!(nrmQ, t/beta...);
-    nrmR = [ nrmR a; zeros(1,lw) beta ];
-    lw = lw+1;
+    #nrmQ = push!(nrmQ, t/beta...)
+    nrmR = [ nrmR a ; zeros(1,lw) beta ]
+    lw = lw+1
   end
 
   # Computation of  nrmR * [permutation matrix] * nrmR'
-  RT = nrmR+0;
-  ie2 = nrmbs[1];
+  RT = copy(nrmR)
+  ie2 = nrmbs[1]
   for j = 2:length(nrmbs)
-    ia1 = ie2+1;
-    ie1 = ie2+nrmbs[j];
-    ia2 = ie1+1;
-    ie2 = ie1+nrmbs[j];
-    TMP = RT[:,ia1:ie1];
-    RT[:,ia1:ie1] = RT[:,ia2:ie2];
-    RT[:,ia2:ie2] = TMP;
+    ia1 = ie2+1
+    ie1 = ie2+nrmbs[j]
+    ia2 = ie1+1
+    ie2 = ie1+nrmbs[j]
+    TMP = RT[:,ia1:ie1]
+    RT[:,ia1:ie1] = RT[:,ia2:ie2]
+    RT[:,ia2:ie2] = TMP
   end
-
-  nrm = vecnorm(nrmR*RT');
-
+  nrm = vecnorm(nrmR*RT')
 end
 nrm, nrmQ, nrmR, nrmbs
 end
@@ -1290,124 +1339,119 @@ end
 #
 ############################################################
 
+"""
 
+Based on lp_para.m from LYAPACK 1.0
+
+Estimation of suboptimal ADI shift parameters for the matrix
+
+F = A - Bf * Kf'.
+
+Calling sequence:
+
+p = lp_para(A,Bf,Kf,l0,kp,km,b0)
+
+Input:
+
+    Bf        matrix Bf
+              Set Bf = [] if not existing or zero!
+    Kf        matrix Kf
+              Set Kf = [] if not existing or zero!
+    l0        desired number of shift parameters (kp+km > 2*l0)
+              (The algorithm delivers either l0 or l0+1 parameters!)
+    kp, km    numbers of Arnoldi steps w.r.t. F and inv(F),
+              respectively (kp, km << order of A)
+    b0         Arnoldi start vector (optional; chosen at random if not
+              provided).
+
+Output:
+
+p         an l0- or l0+1-vector of suboptimal ADI parameters
+
+Remarks:
+
+    Typical values are l0 = 10..40, kp = 20..80, km = 10..40.
+    The harder the problem is the large values are necessary.
+    Larger values mostly result in a faster convergence, but also in a
+    larger memory requirement.
+    However, for "well-conditioned" problems small values of l0 can
+    lead to the optimal performance.
+
+References:
+
+    1. T. Penzl.
+    LYAPACK (Users' Guide - Version 1.0).
+    1999.
+
+Input data not completely checked!
+"""
 function lp_para(A,Bf,Kf,l0,kp,km,b0)
-#
-#  Based on lp_para.m from LYAPACK 1.0
-#
-#  Estimation of suboptimal ADI shift parameters for the matrix
-#
-#    F = A-Bf*Kf'.
-#
-#  Calling sequence:
-#
-#    p = lp_para(A,Bf,Kf,l0,kp,km,b0)
-#
-#  Input:
-#
-#    Bf        matrix Bf;
-#              Set Bf = [] if not existing or zero!
-#    Kf        matrix Kf;
-#              Set Kf = [] if not existing or zero!
-#    l0        desired number of shift parameters (kp+km > 2*l0)
-#              (The algorithm delivers either l0 or l0+1 parameters!);
-#    kp, km    numbers of Arnoldi steps w.r.t. F and inv(F),
-#              respectively (kp, km << order of A);
-#    b0         Arnoldi start vector (optional; chosen at random if not
-#              provided).
-#
-#  Output:
-#
-#    p         an l0- or l0+1-vector of suboptimal ADI parameters;
-#
-#  Remarks:
-#
-#    Typical values are l0 = 10..40, kp = 20..80, km = 10..40.
-#    The harder the problem is the large values are necessary.
-#    Larger values mostly result in a faster convergence, but also in a
-#    larger memory requirement.
-#    However, for "well-conditioned" problems small values of l0 can
-#    lead to the optimal performance.
-#
-#  References:
-#
-#  [1] T. Penzl.
-#      LYAPACK (Users' Guide - Version 1.0).
-#      1999.
-#
-#
 
-# Input data not completely checked!
-
-
-err_code = 0;
+err_code = 0
 
 n=size(A,1);       # Get system order.
-kp >= n && error("kp must be smaller than n!");
-km >= n && error("km must be smaller than n!");
-2*l0 >= kp+km && error("2*l0 must be smaller than kp+km!");
+kp >= n && error("kp must be smaller than n!")
+km >= n && error("km must be smaller than n!")
+2*l0 >= kp+km && error("2*l0 must be smaller than kp+km!")
 
-isempty(b0) && (b0 = randn(n,1));
-b0 = (1/norm(b0))*b0;
+isempty(b0) && (b0 = randn(n,1))
+b0 = (1/norm(b0))*b0
 
-rwp = [];
-rwm = [];
-rw = [];
-Hp = [];
-Hm = [];
+rwp = []
+rwm = []
+rw = []
+Hp = []
+Hm = []
 
 if kp > 0
-  Hp,V = lp_arn(A,Bf,Kf,kp,b0,"p");
+  Hp,V = lp_arn(A,Bf,Kf,kp,b0,"p")
   rwp = eigvals(Hp[1:kp,1:kp]);                  # =: R_+
-  rw = rwp;
+  rw = rwp
 end
 
 if km > 0
-  Hm,V = lp_arn(A,Bf,Kf,km,b0,"m");
+  Hm,V = lp_arn(A,Bf,Kf,km,b0,"m")
   rwm = ones(km,1)./eigvals(Hm[1:km,1:km]);      # =: 1 / R_-
   push!(rw,rwm...);                           # =: R
 end
 
 if any(real(rw) .>= zeros(size(rw)))
-  err_code = 1;
-  println("These are the Ritz values computed by the Arnoldi process w.r.t. F:")
-  println(rwp)
-  println("These are the Ritz values computed by the Arnoldi process w.r.t. inv(F):")
-  println(rwm)
-  println(" ");
-  println("####################################################################");
-  println("WARNING in 'lp_para': NON-STABLE RITZ VALUES DETECTED!!!")
-  println(" ");
-  println("This is quite a serious problem, that can be caused by  ");
-  println("(i)   non-stable matrices F (Be sure that F is stable. ADI like");
-  println("      methods only work for stable or antistable problems. If your");
-  println("      Lyapunov equation is antistable, multiply it by -1.)");
-  println("(ii)  matrices F that are stable but have an indefinite symmetric")
-  println("      part (This is THE weak point of this algorithm. Try to work")
-  println("      with the 'reduced' Ritz values, i.e., the unstable values are")
-  println("      simply removed. This is not an elegant measure but it may work.")
-  println("      However, the convergence of ADI can be poor. This measure is")
-  println("      taken automatically. Another measure might be to enlarge the")
-  println("      values of kp or km, and run the program again.")
-  println("(iii) matrices F with a negative definite, but ill-conditioned")
-  println("      symmetric part (This is quite unlikely. The problem is")
-  println("      caused by round-off errors).")
-  println(" ")
-  println("#####################################################################")
-  println(" ");
-  println(" ");
-  println("NOTE: The unstable Ritz values will be ignored in the further computation!!! ");
-  println(" ")
-  rw0 = rw+0;
-  rw = [];
+  err_code = 1
+  println("These are the Ritz values computed by the Arnoldi process w.r.t. F: $rwp
+  These are the Ritz values computed by the Arnoldi process w.r.t. inv(F): $rwm
+
+  ####################################################################
+  WARNING in 'lp_para': NON-STABLE RITZ VALUES DETECTED!!!
+
+  This is quite a serious problem, that can be caused by
+  (i)   non-stable matrices F (Be sure that F is stable. ADI like
+        methods only work for stable or antistable problems. If your
+        Lyapunov equation is antistable, multiply it by -1.)
+  (ii)  matrices F that are stable but have an indefinite symmetric
+        part (This is THE weak point of this algorithm. Try to work
+        with the 'reduced' Ritz values, i.e., the unstable values are
+        simply removed. This is not an elegant measure but it may work.
+        However, the convergence of ADI can be poor. This measure is
+        taken automatically. Another measure might be to enlarge the
+        values of kp or km, and run the program again.
+  (iii) matrices F with a negative definite, but ill-conditioned
+        symmetric part (This is quite unlikely. The problem is
+        caused by round-off errors).
+
+  #####################################################################
+
+
+  NOTE: The unstable Ritz values will be ignored in the further computation!!! ")
+  rw0 = copy(rw)
+  rw = []
   for j = 1:length(rw0)
     if real(rw0[j])<0
-      push!(rw,rw0[j]);
+      push!(rw,rw0[j])
     end
   end
 end
 
-p = lp_mnmx(rw,l0);
+p = lp_mnmx(rw,l0)
 
 p
 end
@@ -1434,19 +1478,19 @@ function lp_arn(A,Bf,Kf,k,r,pm)
 #
 #  Input:
 #
-#    A         Matrix A;
-#    Bf        matrix Bf;
+#    A         Matrix A
+#    Bf        matrix Bf
 #              Set Bf = [] if not existing or zero!
-#    Kf        matrix Kf;
+#    Kf        matrix Kf
 #              Set Kf = [] if not existing or zero!
 #    k         number of Arnoldi steps (usually k << n, where
-#              n is the order of the system);
+#              n is the order of the system)
 #    r         initial n-vector
 #              (optional - chosen by random, if []).
 #
 #  Output:
 #
-#    H         matrix H ((k+1)-x-k matrix, upper Hessenberg);
+#    H         matrix H ((k+1)-x-k matrix, upper Hessenberg)
 #    V         matrix V (n-x-(k+1) matrix, orthogonal columns).
 #
 #
@@ -1465,18 +1509,18 @@ function lp_arn(A,Bf,Kf,k,r,pm)
 
 # Input data not completely checked!
 
-const with_BK = !isempty(Bf);
+const with_BK = !isempty(Bf)
 
 const n = size(A,1)                 # Get system order.
-k >= n-1 && error("k must be smaller than the order of A!");
-isempty(r) && (r = randn(n,1));
+k >= n-1 && error("k must be smaller than the order of A!")
+isempty(r) && (r = randn(n,1))
 
-V = zeros(n,k+1);
-H = zeros(k+1,k);
+V = zeros(n,k+1)
+H = zeros(k+1,k)
 
-V[:,1] = (1.0/norm(r))*r;
+V[:,1] = (1.0/norm(r))*r
 
-beta = 0;
+beta = 0
 
 LP_L,LP_U,~ = lu(full(A),Val{false})
 
@@ -1484,39 +1528,38 @@ if with_BK && pm=="m"
   # SM = inv(F)*Bf*inv(I-Kf'*inv(F)*Bf)
   # (This is the main part of the term needed for the low
   # rank correction in the Sherman-Morrison formula.)
-  Im = speye(size(Bf,2));
+  Im = speye(size(Bf,2))
   TM = LP_U\(LP_L\Bf)
-  SM = TM/(Im-Kf'*TM);
+  SM = TM/(Im-Kf'*TM)
 end
 
 for j = 1:k
 
   if j > 1
-    H[j,j-1] = beta;
-    V[:,j] = (1.0/beta)*r;
+    H[j,j-1] = beta
+    V[:,j] = (1.0/beta)*r
   end
 
   if (pm == "m")
     w = LP_U\(LP_L\V[:,j])
     with_BK && (w = w + SM*(Kf'*w)); # LR correction by SM formula
   else
-    w = A*V[:,j];
-    with_BK && (w = w-Bf*(Kf'*V[:,j]));
+    w = A*V[:,j]
+    with_BK && (w = w-Bf*(Kf'*V[:,j]))
   end
-  r = w;
+  r = w
 
   for i = 1:j
-    #arr = V[:,i]'*w
-    H[i,j] = dot(V[:,i],w);
-    r = r-H[i,j]*V[:,i];
+    H[i,j] = dot(V[:,i],w)
+    r = r-H[i,j]*V[:,i]
   end
 
-  beta = norm(r);
-  H[j+1,j] = beta;
+  beta = norm(r)
+  H[j+1,j] = beta
 
 end
 
-V[:,k+1] = (1.0/beta)*r;
+V[:,k+1] = (1.0/beta)*r
 
 H,V
 end
@@ -1538,30 +1581,29 @@ function lp_mnmx(rw,l0)
 #    rw        a vector containing numbers in the open left half plane, which
 #              approximate the spectrum of the corresponding matrix, e.g.,
 #              a set of Ritz values. The set must be closed w.r.t. complex
-#              conjugation;
+#              conjugation
 #    l0        desired number of shift parameters (length(rw) >= l0)
 #              (The algorithm delivers either l0 or l0+1 parameters!).
 #
 #  Output:
 #
-#    p         an l0- or l0+1-vector of suboptimal ADI parameters;
+#    p         an l0- or l0+1-vector of suboptimal ADI parameters
 #
 #  Remarks:
 #
-
 # Input data not completely checked!
 
 if length(rw)<l0
-  error("length(rw) must be at least l0.");
+  error("length(rw) must be at least l0.")
 end
 
 max_rr = +Inf;                       # Choose initial parameter (pair)
 p0 = 0
 for i = 1:length(rw)
-  max_r,~ = lp_s(rw[i],rw);
+  max_r,~ = lp_s(rw[i],rw)
   if max_r < max_rr
-    p0 = rw[i];
-    max_rr = max_r;
+    p0 = rw[i]
+    max_rr = max_r
   end
 end
 
@@ -1571,10 +1613,10 @@ max_r,i = lp_s(p,rw);         # Choose further parameters.
 
 while size(p,1) < l0
 
-  p0 = rw[i];
+  p0 = rw[i]
   imag(p0)!=0 ? push!(p,p0,conj(p0)) : push!(p,p0)
 
-  max_r,i = lp_s(p,rw);
+  max_r,i = lp_s(p,rw)
 
 end
 
@@ -1602,33 +1644,33 @@ function lp_s(p,set)
 #
 #   Input:
 #
-#     p        vector of ADI parameters;
+#     p        vector of ADI parameters
 #     set      vector representing the discrete set.
 #
 #   Output:
 #
-#     max_r    maximal magnitude of the rational ADI function over set;
+#     max_r    maximal magnitude of the rational ADI function over set
 #     ind      index - maximum is attained for set(ind).
 #
 
-max_r = -1;
-ind = 0;
+max_r = -1
+ind = 0
 
 for i = 1:length(set)
 
-  x = set[i];
+  x = set[i]
 
-  rr = 1;
+  rr = 1
   for j = 1:length(p)
 
-    rr = rr*abs(p[j]-x)/abs(p[j]+x);
+    rr = rr*abs(p[j]-x)/abs(p[j]+x)
 
   end
 
   if rr > max_r
 
-    max_r = rr;
-    ind = i;
+    max_r = rr
+    ind = i
 
   end
 
@@ -1636,7 +1678,5 @@ end
 max_r,ind
 end
 
-
-
-
+# end module matrixEqs
 end

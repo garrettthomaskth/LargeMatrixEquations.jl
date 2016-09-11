@@ -18,12 +18,12 @@ include("../src/matrixEqs.jl")
 using matrixEqs
 
 
-A = speye(408,408); B = ones(408,1); C = ones(408,1);
-A[1:2,1:2] = [-.01 -200; 200 .001];
-A[3:4,3:4] = [-.2 -300; 300 -.1];
-A[5:6,5:6] = [-.02 -500; 500 0];
-A[7:8,7:8] = [-.01 -520; 520 -.01];
-A[9:408,9:408] = diagm(-(1:400));
+A = speye(408,408); B = ones(408,1); C = ones(408,1)
+A[1:2,1:2] = [-.01 -200; 200 .001]
+A[3:4,3:4] = [-.2 -300; 300 -.1]
+A[5:6,5:6] = [-.02 -500; 500 0]
+A[7:8,7:8] = [-.01 -520; 520 -.01]
+A[9:408,9:408] = diagm(-(1:400))
 
 println("Problem dimensions:")
 
@@ -47,15 +47,15 @@ km = 15;   # number of steps of Arnoldi process w.r.t. inv(A)
 b0 = ones(n,1);   # This is just one way to choose the Arnoldi start
                   # vector.
 Bf = []#zeros(408,2)#
-Kf = [];
+Kf = []
 # computation of ADI shift parameters
-p = lp_para(A,Bf,Kf,l0,kp,km,b0);
+p = lp_para(A,Bf,Kf,l0,kp,km,b0)
 
-println("Actual number of ADI shift parameters:");
-l = length(p);
+println("Actual number of ADI shift parameters:")
+l = length(p)
 
-println("ADI shift parameters:");
-p;
+println("ADI shift parameters:")
+p
 
 
 # -----------------------------------------------------------------------
@@ -69,15 +69,15 @@ min_res = 1e-100;   # (avoided, but the residual history is shown)
 with_rs = "N";   # (avoided)
 min_in = 0;   # (avoided)
 
-zk = "Z";
-rc = "R";
-Bf = ones(408,2)#[];
-Kf = zeros(408,2)#[];
-K = ones(408,408);
-info = 2;
+zk = "Z"
+rc = "R"
+Bf = ones(408,2)#[]
+Kf = zeros(408,2)#[]
+K = ones(408,408)
+info = 2
 
-println("... solving A*XB+XB*A'' = - B*B''...");
-tp = "B";
+println("... solving A*XB+XB*A'' = - B*B''...")
+tp = "B"
 
 #figure(1), hold off; clf;   # (lp_lradi will plot residual history.)
 #using ProfileView
@@ -85,7 +85,7 @@ ZB,flag,res =lp_lradi(A,B,p,max_it=200)
 #Profile.clear()
 #@profile lp_lradi(A,B,p,max_it=200)
 #ProfileView.view()
-#ZB,flag,res = lp_lradi(A,B,p)#,max_it,tp,zk,rc,min_res,with_rs,min_in,info);
+#ZB,flag,res = lp_lradi(A,B,p)#,max_it,tp,zk,rc,min_res,with_rs,min_in,info)
 # compute ZB
 
 X=ZB*ZB'
@@ -94,21 +94,21 @@ println(norm(A*X+X*A'+B*B'))
 title("LRCF-ADI for CALE  AX_{B}+X_{B}A^T = -BB^T")
 println("Termination flag:")
 flag_B
-println("Size of ZB:");
+println("Size of ZB:")
 size_ZB = size(ZB)
 
-println("... solving A''*XC+XC*A = - C''*C...");
-tp = "C";
+println("... solving A''*XC+XC*A = - C''*C...")
+tp = "C"
 
 figure(2), hold off; clf;   # (lp_lradi will plot residual history.)
 
 [ZC,flag_C] = lp_lradi(tp,zk,rc,name,Bf,Kf,C,p,max_it,min_res,...
-              with_rs,min_in,info);
+              with_rs,min_in,info)
                                        # compute ZC
 
 title("LRCF-ADI for CALE  A^T X_{C} + X_{C} A_ = -C^TC")
 println("Termination flag:")
 flag_C
-println("Size of ZC:");
+println("Size of ZC:")
 size_ZC = size(ZC)
 =#

@@ -18,7 +18,7 @@ for i in 2:(nh-1)
 end
 T[2,1] = 4
 I=eye(nh);
-A=-(kron(T,I)+kron(I,T));
+A=-sparse(kron(T,I)+kron(I,T));
 n=nh^2;
 srand(123)
 #E = diagm(rand(n),0)
