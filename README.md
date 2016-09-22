@@ -10,7 +10,7 @@ V. Simoncini,
 A new iterative method for solving large-scale Lyapunov matrix equations 
 SIAM J. Scient. Computing, v.29, n.3 (2007), pp. 1268-1288. 
 
-######Adaptive Rational Krylov Subspaces Method for Lyapunov Equations
+######Adaptive Rational Krylov Subspaces Method (rksm) for Lyapunov Equations
 Based on rksm.m from V. Simoncini's [Website](http://www.dm.unibo.it/~simoncin/software.html).
 Resources:
 V. Druskin and V. Simoncini, 
