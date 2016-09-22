@@ -1,7 +1,8 @@
-# matrixEqs
-###Numerical Methods for Large Scale Matrix Equations in Julia
+# LME_Pack (Large Matrix Equations Package)
+LME_Pack is a package that implements popular Numerical Methods for Large Scale Matrix Equations in Julia.
 
-####Generalized Lyapunov Equation:
+####Included methods for solving the following matrix equations
+###Generalized Lyapunov Equation:
 ######Extended Krylov Method with Galerkin condition (kpik)
 Based on kpik.m from V. Simoncini's [Website](http://www.dm.unibo.it/~simoncin/software.html). 
 Resources:
