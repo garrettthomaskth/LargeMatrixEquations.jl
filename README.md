@@ -1,5 +1,5 @@
 # LME_Pack (Large Matrix Equations Package)
-LME_Pack is a package that implements popular Numerical Methods for Large Scale Matrix Equations in Julia.
+**LME_Pack** is a package that implements popular Numerical Methods for Large Scale Matrix Equations in Julia.
 
 ####Included methods for solving the following matrix equations
 ###Generalized Lyapunov Equation:
@@ -26,3 +26,15 @@ An efficient Lyapunov equation based approach for generating
 reduced-order models of interconnect.
 Proceedings of the 36th IEEE/ACM Design Automation Conference,
 New Orleans, LA, 1999.
+
+#Example
+'''
+using LME_Pack
+
+n = 10
+A = -diagm(ones(nh)*2)+diagm(ones(nh-1),-1)+diagm(ones(nh-1),1)
+
+srand(1234)
+B = randn(n,2)
+E = diagm(randn(n),0)
+'''
