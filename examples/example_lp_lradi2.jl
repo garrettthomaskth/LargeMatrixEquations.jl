@@ -66,18 +66,18 @@ p
 println("Parameters for stopping criteria in LRCF-ADI iteration:")
 max_it = 40;   # (will stop the iteration)
 min_res = 1e-100;   # (avoided, but the residual history is shown)
-with_rs = "N";   # (avoided)
+with_rs = :N;   # (avoided)
 min_in = 0;   # (avoided)
 
-zk = "Z"
-rc = "R"
+zk = :Z
+rc = :R
 Bf = ones(408,2)#[]
 Kf = zeros(408,2)#[]
 K = ones(408,408)
 info = 2
 
 println("... solving A*XB+XB*A'' = - B*B''...")
-tp = "B"
+tp = :B
 
 #figure(1), hold off; clf;   # (lp_lradi will plot residual history.)
 #using ProfileView

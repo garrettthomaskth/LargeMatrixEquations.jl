@@ -5,7 +5,7 @@
 workspace()
 include("../src/matrixEqs.jl")
 using matrixEqs
-nh=30;
+nh=31;
 T = zeros(nh,nh)
 T[1,1] = 2
 T[1,2] = -1
@@ -16,7 +16,7 @@ for i in 2:(nh-1)
   T[i,i] = 2
   T[i,i+1] = -1
 end
-T[2,1] = 4
+#T[2,1] = 4
 I=eye(nh);
 A=-sparse(kron(T,I)+kron(I,T));
 n=nh^2;

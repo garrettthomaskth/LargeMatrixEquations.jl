@@ -6,7 +6,7 @@ workspace()
 include("../src/matrixEqs.jl")
 using matrixEqs
 
-nh = 15
+nh = 10
 n = nh^2
 T = zeros(nh,nh)
 T[1,1] = 2
