@@ -32,7 +32,7 @@ New Orleans, LA, 1999.
 using LME_Pack
 
 n = 10
-A = -diagm(ones(nh)*2)+diagm(ones(nh-1),-1)+diagm(ones(nh-1),1)
+A = -diagm(ones(n)*2)+diagm(ones(n-1),-1)+diagm(ones(n-1),1)
 B = [1:n (n+1):(2*n)]
 
 Zkpik,er2=kpik(A,B)
