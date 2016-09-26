@@ -47,8 +47,3 @@ xlabel("Iteration")
 semilogy(er2, color="red", linewidth=2.0, linestyle="--")
 show()
 ```
-
-```julia
-
-
- ```
