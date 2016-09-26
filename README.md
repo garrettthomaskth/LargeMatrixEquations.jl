@@ -28,13 +28,27 @@ Proceedings of the 36th IEEE/ACM Design Automation Conference,
 New Orleans, LA, 1999.
 
 #Example
-'''
+```julia
 using LME_Pack
 
 n = 10
 A = -diagm(ones(nh)*2)+diagm(ones(nh-1),-1)+diagm(ones(nh-1),1)
+B = [1:n (n+1):(2*n)]
 
-srand(1234)
-B = randn(n,2)
-E = diagm(randn(n),0)
-'''
+Zkpik,er2=kpik(A,B)
+Zrksm,resnorm=rksm(A,B,E)
+Zadi,flag,res=lp_lradi(A,B)
+
+# Example of ploting the backwards error from kpik
+using PyPlot
+title("Plot of Scaled Residual")
+ylabel("Residual")
+xlabel("Iteration")
+semilogy(er2, color="red", linewidth=2.0, linestyle="--")
+show()
+```
+
+```julia
+
+
+ ```
