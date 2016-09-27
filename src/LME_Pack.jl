@@ -1,4 +1,4 @@
-module matrixEqs
+module LME_Pack
 
 export kpik, rksm, lp_lradi, lp_para
 
