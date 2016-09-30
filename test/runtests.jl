@@ -8,13 +8,15 @@ n = nh^2#nh^2
 T = diagm(ones(nh)*2)-diagm(ones(nh-1),-1)-diagm(ones(nh-1),1)
 I = eye(nh,nh)
 A = -(diagm(ones(n)*2)-diagm(ones(n-1),-1)-diagm(ones(n-1),1))#-(kron(T,I)+kron(I,T))
-srand(1212334)
-B = [1:n (n+1):(2*n)]#randn(n,2)
+srand(1234)
+B = ones(n,1)
 
-E = diagm(1:n,0)#diagm(rand(n),0)
+E = diagm(ones(n),0)
+E[1,1]=2
+E[n,n]=3
 
 Z,er2=try
-        kpik(A,B,E)
+        kpik(A,B,E,infoV=false)
       catch
         error("kpik failed with full matrices")
       end
@@ -31,7 +33,7 @@ Z,er2=try
 
 
 Z,resnorm=try
-              rksm(A,B,E)
+              rksm(A,B,E,infoV=false)
           catch
               error("rksm failed with full matrices")
           end
@@ -53,7 +55,7 @@ Z,flag,res =try
 @test norm(A*Z*Z' + Z*Z'*A' + B*B') < 0.001
 
 Z,flag,res =try
-              lp_lradi(sparse(A),B)
+              lp_lradi(sparse(A),B,infoV=false)
             catch
               error("lp_lradi failed with sparse matricies")
             end

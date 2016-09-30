@@ -3,8 +3,6 @@ module LME_Pack
 export kpik, rksm, lp_lradi, lp_para
 
 
-#using PyPlot
-
 """
     `kpik(A,B,E=1;<keyword arguments>)`
 
@@ -35,10 +33,11 @@ NAMED ARGUMENTS
 
     'm' : max space dimension, Defult: 100
 
-    'tol' : stopping tolerance, with stopping criterion
+    'tol' : stopping tolerance based on the backwards error,
+    with stopping criterion
 
-    ||LE\\A X LE  + LE' X A'/LE'-LE\\BB'/LE'||
-    ----------------------------------------      < tol
+      ||LE\\A X LE  + LE' X A'/LE'-LE\\BB'/LE'||
+    -----------------------------------------------   < tol
     ||LE\\BB'/LE'|| + ||E^{-1}|| ||A|| ||LE'X LE ||
 
     computed in a cheap manner. Defult: 1e-9
@@ -69,7 +68,7 @@ If you use this code, please cite the following article:
     A new iterative method for solving large-scale Lyapunov matrix equations,
     SIAM J.  Scient. Computing, v.29, n.3 (2007), pp. 1268-1288.
 """
-function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,infoV=true,plot=false)
+function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,infoV=true)
 
   @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
 
@@ -121,7 +120,7 @@ function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,infoV=true,plot=false)
        const UA = chol(-A)
        const LA = -UA'
      end
-     println("A sym. Completed Chol factorization\n")
+     infoV && println("A sym. Completed Chol factorization\n")
      const k_max =2
    else
      luA=lufact(full(A),Val{false})
@@ -129,7 +128,7 @@ function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,infoV=true,plot=false)
      const UA = luA[:U]
 
 
-     println("A nonsym. Completed LU factorization\n")
+     infoV && println("A nonsym. Completed LU factorization\n")
      const k_max = m
    end
 
@@ -149,7 +148,6 @@ function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,infoV=true,plot=false)
    H=zeros((m+1)*s,m*s)
    T=zeros((m+1)*s,m*s)
    L=zeros((m+1)*s,m*s)
-   println("      it        backward err\n")
    local js, j, rho
    for j=1:m
      jms=(j-1)*s+1
@@ -225,7 +223,7 @@ function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,infoV=true,plot=false)
 
       er2=[er2;sqrt2*vecnorm(cc*Y[js-s+1:js,:])/(nrmb+singE*nrma*nrmx)]
 
-      println("It: $j, Current relative residual norm: $(er2[j])")
+      infoV && println("KPIK It: $j -- Current Backwards Error: $(er2[j])")
 
       (er2[j]<tol) ? break : U = [U Up]
 
@@ -251,16 +249,8 @@ function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,infoV=true,plot=false)
     er2=er2[1:j]
 
     if infoV
-      println("its           comp.res.   space dim.   CPU Time
-      $j           $(er2[j])   $js   $(toq())")
-    end
-
-    if plot
-      title("Plot of Scaled Residual")
-      ylabel("Residual")
-      xlabel("Iteration")
-      semilogy(er2, color="red", linewidth=2.0, linestyle="--")
-      show()
+      println("its  Back. Error            space dim. CPU Time")
+      println("$j    $(er2[j])  $js          $(toq())")
     end
 
     return Z, er2
@@ -293,10 +283,13 @@ Input:
 
     m       max space dimension allowed
 
-    tol     stopping tolerance, with stopping criterion
-            ||LE\A X LE  + LE' X A'/LE'-LE\BB'/LE'||
-            ----------------------------------------  < tol
+    tol     stopping tolerance based on the backwards error,
+            with stopping criterion
+
+                ||LE\A X LE  + LE' X A'/LE'-LE\BB'/LE'||
+            ----------------------------------------------  < tol
             ||LE\BB'/LE'|| + ||E^{-1}|| ||A|| ||LE'X LE ||
+
             computed in a cheap manner
 
     s1,smax   estimates for real spectral interval associated with
@@ -305,6 +298,9 @@ Input:
     ch      ch=true  complex poles  ch=false real poles
 
     tolY    truncation tolerance for final solution, e.g., tolY=1e-12
+
+    infoV   If true, print out backwards error every iteration and a summary
+            once the program finishes.
 
 Output:
 
@@ -335,7 +331,7 @@ When using this code, please cite the following reference:
 #CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 function rksm(A,B,E=1;LE=1,s1=NaN,emax=NaN,m=100,tol=1e-9,ch=false,tolY=1e-12,
-                                                          infoV=true,plot=false)
+                                                          infoV=true)
 
 @assert(isdefined(:vecnorm),"Your julia version is too old. vecnorm() not defined")
 
@@ -346,20 +342,21 @@ const symm = norm(A-E-(A-E)',1) < 1e-14
 # Therefore we must use complex types
 symm ? (const typ = Float64) : (const typ = Complex{Float64})
 
+
+E==1 ? ee = eye(n) : ee = E
 # If user does not give smallest generalized eigenvalue, calculate it
 if (isnan(s1))
-  (symm) && (s1 = eigmax(inv(full(E))*full(-A)))
-  (!symm) && (s1 = maximum(abs(eigvals(inv(full(E))*full(-A)))))
+  (symm) && (s1 = eigmax(inv(full(ee))*full(-A)))
+  (!symm) && (s1 = maximum(abs(eigvals(inv(full(ee))*full(-A)))))
 end
 
 # If user does not give largest generalized eigenvalue, calculate it
 if (isnan(emax))
-  (symm) && (emax = eigmin(inv(full(E))*full(-A)))
-  (!symm) && (emax = minimum(abs(eigvals(inv(full(E))*full(-A)))))
+  (symm) && (emax = eigmin(inv(full(ee))*full(-A)))
+  (!symm) && (emax = minimum(abs(eigvals(inv(full(ee))*full(-A)))))
 end
 
 if (E != 1 && LE == 1)
-  println("thisworks")
   if issparse(E)
     LE = try
           LE = sparse(cholfact(E,perm=1:size(E,1))[:L])
@@ -388,17 +385,15 @@ const nrmb=vecnorm(inv(rr))^2
 const beta=V'*Lres
 const beta2=beta*beta'
 s=typ[]
-print("     no its     backward error\n")
-#VV=Array(typ,n,p*(m+2))
+
 VV=zeros(n,p*(m+2))
-typ == Float64 && (VV=VV*1.)
-typ == Complex{Float64} && (VV=VV*1.*im)
+(typ == Float64) && (VV=VV*1.)
+(typ == Complex{Float64}) && (VV=VV*1.*im)
 VV[1:n,1:p]=V
 
 H=zeros(p*(m+2),p*(m+1))
-typ == Float64 && (H=H*1.)
-typ == Complex{Float64} && (H=H*1.*im)
-
+(typ == Float64) && (H=H*1.)
+(typ == Complex{Float64}) && (H=H*1.*im)
 
 nrmrestot=[]
 const nrma=vecnorm(A)
@@ -410,7 +405,6 @@ if (vecnorm(E-speye(n))>1e-14)
 else
   const singE=1
 end
-
 
 newAv=LE\(A*(LE'\V))
 
@@ -496,13 +490,11 @@ while i < m
 
   U=[-V*s[end]  d u1 ]
   extra,rr=qr(full(U))
-  #println(nrmb)
-  #println(nrma)
-  #println(nrmx)
+
   nrmres=vecnorm(rr*([O Iden O; Iden O Iden; O Iden O ])*rr')/(nrmb+singE*nrma*nrmx)
   push!(nrmrestot, nrmres)
 
-  println([i,nrmres])
+  infoV && println("RKSM It: $i -- Current relative residual norm: $nrmres")
   (nrmres<tol) && break
   # New poles and zeros
   eH=eig(K)[1]
@@ -565,6 +557,7 @@ while i < m
 
 end
 
+
 # Done
 # Reduce rank of solution, if needed
 sY,uY=eig(Y)
@@ -583,14 +576,11 @@ end
 Y0 = uY[:,1:is]*diagm(sqrt(sY[1:is]))
 Z = LE'\(VV[:,1:size(Y0,1)]*Y0)
 
-RKStotal_time=toq()
-if(plot)
+if infoV
+  RKStotal_time=toq()
   println("Space dim $j1s  Solution rank $is  time $RKStotal_time")
-  title("Plot of Scaled Residual")
-  ylabel("Residual")
-  xlabel("Iteration")
-  semilogy(nrmrestot, color="red", linewidth=2.0, linestyle="--")
 end
+
 return Z,nrmrestot
 
 end
@@ -765,8 +755,6 @@ Input:
               A * X + X * A' = -B * B' or A' * X + X * A = -B' * B
               depending on choice of tp.
     tp        (= :B or :C) named argument that determines the type of Lyapunov equation. Defult value is :B
-    zk        (= :Z or :K) named argument that determines whether Z or K_out should be
-              computed. Defult value is :Z
     rc        (= :R or :C) named argument that determines whether the low rank factor Z
               must be real (:R) or if complex factors are allowed (:C)
               If p contains complex parameters, then the low rank factor
@@ -829,19 +817,9 @@ Output:
 
 Remarks:
 
-    1. Note on the choice of zk, in case only Z * Z' * K and not Z * Z' is
-    sought: zk = :K can save much memory in some situations. But the amount
-    of computation is mostly not less than in the first mode, which should be
-    considered as the standard mode. zk = :Z has several advantages:
-    there are more stopping criteria available, the computation of the
-    residual norm is possible. In contrast, there is no secure way to
-    verify that the computed matrix K_out indeed approximates the exact
-    matrix X*K in the second mode. So, in general, you should use the
-    first mode, even if you are only interested in X * K instead of X itself.
+    1. The eigenvalues of F must have negative real parts.
 
-    2. The eigenvalues of F must have negative real parts.
-
-    3. The values in res correspond to the following "relative" norms
+    2. The values in res correspond to the following "relative" norms
 
       tp = :B
 
@@ -851,7 +829,7 @@ Remarks:
 
         res(i+1) = ||F' * Z_i * Z_i' + Z_i * Z_i' * F + B' * B||F/||B' * B||F
 
-    4. Note that all stopping criteria are checked only after a step
+    3. Note that all stopping criteria are checked only after a step
     with a real parameter or a "double step" with a pair of conjugate
     complex parameters. This ensures that Z*Z' is real, even if Z is
     not.
@@ -910,28 +888,23 @@ Internal remarks:
     stcf is also the number of consecutive steps, for which the criterion
     w.r.t. min_in must be fulfilled.
 """
-function lp_lradi(A,B,p;Bf=[],Kf=[],K=[],max_it=100,tp=:B,zk=:Z,rc=:C,
-  min_res=1e-6,with_rs=:S,min_in=0,infoV=true,plot=false)
+function lp_lradi(A,B;p=[],Bf=[],Kf=[],K=[],max_it=100,tp=:B,rc=:C,
+  min_res=1e-6,with_rs=:S,min_in=0,infoV=true)
 
 tic()
+isempty(p) && (p=lp_para(A))
 const stcf = 10
 const min_rs = .1
 
-(zk!=:Z && zk!=:K) && error("zk must be either :Z or :K.")
 (tp!=:B && tp!=:C) && error("tp must be either :B or :C.")
 (rc!=:R && rc!=:C) && error("rc must be either :R or :C.")
 
-const compute_K = (zk==:K)
 const tpB = (tp == :B)
-if compute_K
-  const with_norm = false
-  const with_min_rs = false
-  const K_is_real = (imag(K)==0)
-else
-  const with_min_rs = (with_rs==:S)
-  const with_norm = (min_res>0)||with_min_rs
-  const make_real = (rc==:R)
-end
+
+const with_min_rs = (with_rs==:S)
+const with_norm = (min_res>0)||with_min_rs
+const make_real = (rc==:R)
+
 const with_min_in = min_in>0
 
 const with_BK = !isempty(Bf)
@@ -947,12 +920,8 @@ end
 const Ide = speye(size(A,1))
 LP_L = Array(Complex{Float64},size(A)...,l)
 LP_U = Array(Complex{Float64},size(A)...,l)
-#LL,UU,~=lu(A,Val{false})
-#invUU=inv(UU)
 for i = 1:l
   LP_L[:,:,i],LP_U[:,:,i],~=lu(full(A+p[i]*Ide),Val{false})
-  #LP_L[:,:,i] = LL+p[i]*invUU
-  #LP_U[:,:,i] = UU
 end
 
 if with_BK
@@ -1008,7 +977,7 @@ is_first = true;           # is_first = (current parameter is the first
                            #            of a pair, PROVIDED THAT is_compl.)
 
 
-local V
+local V, Z
 for i = 1:max_it       # The iteration itself
 
   if i==1
@@ -1031,19 +1000,7 @@ for i = 1:max_it       # The iteration itself
       V = sqrt(-2*real(p[1]))*V
     end
 
-    if compute_K
-
-      Z = V*(V'*K)
-      # Caution: the physical variable Z contains the
-      # "logical" variable K ("feedback iterate") in the
-      # case, when only K_out is sought (zk = "K").
-
-    else
-
-      Z = V;             # Note:  Z*Z' = current ADI iterate
-
-    end
-
+    Z = V;             # Note:  Z*Z' = current ADI iterate
 
   else # i > 1
 
@@ -1087,30 +1044,23 @@ for i = 1:max_it       # The iteration itself
       V = sqrt(real(p[i_p])/real(p_old))*TM
     end
 
-    if compute_K
-      # Form new iterate K in case
-      # that only Z*Z'*K is sought.
-      Z = Z+V*(V'*K)
 
-    else
-      # Form new iterate Z.
+    # Form new iterate Z.
 
-      !is_compl && (V = real(V))
+    !is_compl && (V = real(V))
 
-      Z = [Z V]
+    Z = [Z V]
 
-      # Make last 2*m columns real.
-      if make_real && is_compl && !is_first
-        for j = (i-1)*m+1:i*m
-          U1,S1,V1 = svd([real(Z[:,j-m]) real(Z[:,j]) imag(Z[:,j-m]) imag(Z[:,j])])
-          S1 = diagm(S1)
-          U2,S2,V2 = svd(V1[1:2,1:2]'*V1[1:2,1:2]+V1[3:4,1:2]'*V1[3:4,1:2],thin=false)
-          TMP = U1[:,1:2]*S1[1:2,1:2]*U2*diagm(sqrt(S2))
-          Z[:,j-m] = TMP[:,1]
-          Z[:,j] = TMP[:,2]
-        end
+    # Make last 2*m columns real.
+    if make_real && is_compl && !is_first
+      for j = (i-1)*m+1:i*m
+        U1,S1,V1 = svd([real(Z[:,j-m]) real(Z[:,j]) imag(Z[:,j-m]) imag(Z[:,j])])
+        S1 = diagm(S1)
+        U2,S2,V2 = svd(V1[1:2,1:2]'*V1[1:2,1:2]+V1[3:4,1:2]'*V1[3:4,1:2],thin=false)
+        TMP = U1[:,1:2]*S1[1:2,1:2]*U2*diagm(sqrt(S2))
+        Z[:,j-m] = TMP[:,1]
+        Z[:,j] = TMP[:,2]
       end
-
 
     end
 
@@ -1161,16 +1111,8 @@ for i = 1:max_it       # The iteration itself
   end
 end
 
-if compute_K && K_is_real
-   Z = real(Z)
-end
-println(toq())
-if plot
-  title("Plot of Scaled Residual")
-  ylabel("Residual")
-  xlabel("Iteration")
-  semilogy(res, color="red", linewidth=2.0, linestyle="--")
-end
+infoV && println("Computational Time:  ", toq())
+
 Z, flag, res
 end
 
@@ -1400,14 +1342,30 @@ References:
 
 Input data not completely checked!
 """
-function lp_para(A,Bf,Kf,l0,kp,km,b0)
+function lp_para(A,Bf=[],Kf=[],l0=NaN,kp=NaN,km=NaN,b0=[])
 
 err_code = 0
+n=size(A,1); # Get system order.
 
-n=size(A,1);       # Get system order.
-kp >= n && error("kp must be smaller than n!")
-km >= n && error("km must be smaller than n!")
-2*l0 >= kp+km && error("2*l0 must be smaller than kp+km!")
+if isnan(l0) && isnan(kp) && isnan(km)
+  if n > 51
+    kp=50;
+    km=25;
+    l0=20;
+  elseif n > 15
+    kp = n - 5
+    km = Int(round(kp/2))
+    l0 = km-2
+  else
+    kp = n-2
+    km = Int(round(kp/2))
+    l0 = km-1
+  end
+else
+  kp >= n && error("kp must be smaller than n!")
+  km >= n && error("km must be smaller than n!")
+  2*l0 >= kp+km && error("2*l0 must be smaller than kp+km!")
+end
 
 isempty(b0) && (b0 = randn(n,1))
 b0 = (1/norm(b0))*b0
