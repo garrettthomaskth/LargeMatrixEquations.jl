@@ -27,7 +27,10 @@ reduced-order models of interconnect.
 Proceedings of the 36th IEEE/ACM Design Automation Conference,
 New Orleans, LA, 1999.
 
-##Example
+###Download
+git clone https://github.com/garrettthomaskth/LME_Pack.git
+
+###Example
 ```julia
 using LME_Pack
 
