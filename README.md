@@ -31,19 +31,36 @@ New Orleans, LA, 1999.
 ```julia
 using LME_Pack
 
-n = 100
+n = 1000
 A = -diagm(ones(n)*2)+diagm(ones(n-1),-1)+diagm(ones(n-1),1)
 B = ones(n,1)
 
-Zkpik,er2=kpik(A,B)
-Zrksm,resnorm=rksm(A,B)
-Zadi,flag,res=lp_lradi(A,B)
+Zkpik,er2=kpik(A,B,tol=1e-14)
+println(norm(A*Zkpik*Zkpik' + Zkpik*Zkpik'*A' + B*B'))
 
-# Example of ploting the backwards error from kpik
+Zrksm,resnorm=rksm(A,B,tol=1e-14)
+println(norm(A*Zrksm*Zrksm' + Zrksm*Zrksm'*A' + B*B'))
+
+
+Zadi,flag,res=lp_lradi(A,B)
+println(norm(A*Zadi*Zadi' + Zadi*Zadi'*A' + B*B'))
+
+println("LYAP")
+C=B*B'
+tic()
+X=lyap(A,C*1.)
+println(toq())
+println(norm(A*X + X*A' + B*B'))
+```
+This example shows how one can compare the preformence of the three methods included in LME_Pack with the built in Lyapunov solver, ```lyap```.
+
+```julia
 using PyPlot
-title("Plot of Scaled Residual")
-ylabel("Residual")
+title("Plot of KPIK Backwards Error")
+ylabel("Error")
 xlabel("Iteration")
 semilogy(er2, color="red", linewidth=2.0, linestyle="--")
 show()
 ```
+
+The second part of this example shows how one can use the package PyPlot to visualize the information returned from ```kpik```. This idea is of course also applicable to the other functions. 
