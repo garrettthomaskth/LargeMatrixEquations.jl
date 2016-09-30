@@ -33,7 +33,7 @@ using LME_Pack
 
 n = 100
 A = -diagm(ones(n)*2)+diagm(ones(n-1),-1)+diagm(ones(n-1),1)
-B = [1:n (n+1):(2*n)]
+B = ones(n,1)
 
 Zkpik,er2=kpik(A,B)
 Zrksm,resnorm=rksm(A,B)
