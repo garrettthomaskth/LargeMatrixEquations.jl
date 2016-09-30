@@ -500,7 +500,7 @@ while i < m
   nrmres=vecnorm(rr*([O Iden O; Iden O Iden; O Iden O ])*rr')/(nrmb+singE*nrma*nrmx)
   push!(nrmrestot, nrmres)
 
-  infoV && println("RKSM It: $i -- Current relative residual norm: $nrmres")
+  infoV && println("RKSM It: $i -- Current backwards error: $nrmres")
   (nrmres<tol) && break
   # New poles and zeros
   eH=eig(K)[1]
