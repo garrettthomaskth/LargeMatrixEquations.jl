@@ -104,7 +104,10 @@ function kpik(A,B,E=1;LE=1,m=100,tol=1e-9,tolY=1e-12,infoV=true)
   odds=[]
   er2=[]
 
-  if (vecnorm(E-speye(n))>1e-14)
+  if E == 1
+    const condestE=1
+    const singE=condestE/vecnorm(eye(n))
+  elseif (vecnorm(E-speye(n))>1e-14)
     const condestE=cond(full(E))
     const singE=condestE/vecnorm(E)
   else
@@ -342,6 +345,8 @@ const symm = norm(A-E-(A-E)',1) < 1e-14
 # Therefore we must use complex types
 symm ? (const typ = Float64) : (const typ = Complex{Float64})
 
+const n=size(A,1)
+const p=size(B,2)
 
 E==1 ? ee = eye(n) : ee = E
 # If user does not give smallest generalized eigenvalue, calculate it
@@ -372,8 +377,6 @@ if (E != 1 && LE == 1)
  end
 end
 
-const n=size(A,1)
-const p=size(B,2)
 const Iden=eye(p)
 const O=0*Iden
 const uno=ones(1,p)
@@ -399,7 +402,10 @@ nrmrestot=[]
 const nrma=vecnorm(A)
 
 
-if (vecnorm(E-speye(n))>1e-14)
+if E == 1
+  const condestE=1
+  const singE=condestE/vecnorm(eye(n))
+elseif (vecnorm(E-speye(n))>1e-14)
   const condestE=cond(full(E))
   const singE=condestE/vecnorm(full(E))
 else

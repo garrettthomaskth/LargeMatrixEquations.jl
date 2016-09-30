@@ -14,8 +14,8 @@
 # This is an artificial test problem of a system, whose Bode plot shows
 # "spires".
 workspace()
-include("../src/matrixEqs.jl")
-using matrixEqs
+include("../src/LME_Pack.jl")
+using LME_Pack
 
 
 A = speye(408,408); B = ones(408,1); C = ones(408,1)
@@ -79,36 +79,8 @@ info = 2
 println("... solving A*XB+XB*A'' = - B*B''...")
 tp = :B
 
-#figure(1), hold off; clf;   # (lp_lradi will plot residual history.)
-#using ProfileView
-ZB,flag,res =lp_lradi(A,B,p,max_it=200)
-#Profile.clear()
-#@profile lp_lradi(A,B,p,max_it=200)
-#ProfileView.view()
-#ZB,flag,res = lp_lradi(A,B,p)#,max_it,tp,zk,rc,min_res,with_rs,min_in,info)
-# compute ZB
+ZB,flag,res =lp_lradi(A,B,p=p,max_it=200)
+
 
 X=ZB*ZB'
 println(norm(A*X+X*A'+B*B'))
-#=
-title("LRCF-ADI for CALE  AX_{B}+X_{B}A^T = -BB^T")
-println("Termination flag:")
-flag_B
-println("Size of ZB:")
-size_ZB = size(ZB)
-
-println("... solving A''*XC+XC*A = - C''*C...")
-tp = "C"
-
-figure(2), hold off; clf;   # (lp_lradi will plot residual history.)
-
-[ZC,flag_C] = lp_lradi(tp,zk,rc,name,Bf,Kf,C,p,max_it,min_res,...
-              with_rs,min_in,info)
-                                       # compute ZC
-
-title("LRCF-ADI for CALE  A^T X_{C} + X_{C} A_ = -C^TC")
-println("Termination flag:")
-flag_C
-println("Size of ZC:")
-size_ZC = size(ZC)
-=#
