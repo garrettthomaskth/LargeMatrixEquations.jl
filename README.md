@@ -1,5 +1,5 @@
-# LME_Pack (Large Matrix Equations Package)
-**LME_Pack** is a package that implements popular Numerical Methods for Large Scale Matrix Equations in Julia.
+# LargeMatrixEquations
+**LargeMatrixEquations** is a package that implements popular Numerical Methods for Large Scale Matrix Equations in Julia.
 
 ####Included methods for solving the following matrix equations
 ###Generalized Lyapunov Equation:
@@ -28,11 +28,11 @@ Proceedings of the 36th IEEE/ACM Design Automation Conference,
 New Orleans, LA, 1999.
 
 ###Download
-git clone https://github.com/garrettthomaskth/LME_Pack.git
+git clone https://github.com/garrettthomaskth/LargeMatrixEquations.git
 
 ###Example
 ```julia
-using LME_Pack
+using LargeMatrixEquations
 
 n = 1000
 A = -diagm(ones(n)*2)+diagm(ones(n-1),-1)+diagm(ones(n-1),1)
@@ -55,7 +55,7 @@ X=lyap(A,C*1.)
 println(toq())
 println(norm(A*X + X*A' + B*B'))
 ```
-This example shows how one can compare the preformence of the three methods included in LME_Pack with the built in Lyapunov solver, ```lyap```.
+This example shows how one can compare the preformence of the three methods included in LargeMatrixEquations with the built in Lyapunov solver, ```lyap```.
 
 ```julia
 using PyPlot
