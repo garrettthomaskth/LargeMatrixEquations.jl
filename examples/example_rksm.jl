@@ -3,8 +3,8 @@
 # Based on example_rksm.m on V. Simoncini's Website
 ######################################
 workspace()
-include("../src/LME_Pack.jl")
-using LME_Pack
+include("../src/LargeMatrixEquations.jl")
+using LargeMatrixEquations
 
 nh = 20
 n = nh^2

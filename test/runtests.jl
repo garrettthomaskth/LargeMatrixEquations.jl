@@ -1,6 +1,6 @@
 workspace()
-include("../src/LME_Pack.jl")
-using LME_Pack
+include("../src/LargeMatrixEquations.jl")
+using LargeMatrixEquations
 using Base.Test
 
 nh = 10

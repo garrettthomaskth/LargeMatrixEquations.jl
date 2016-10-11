@@ -1,4 +1,4 @@
-module LME_Pack
+module LargeMatrixEquations
 
 export kpik, rksm, lp_lradi, lp_para
 

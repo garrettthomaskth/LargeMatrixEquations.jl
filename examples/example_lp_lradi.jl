@@ -14,8 +14,8 @@
 # This is an artificial test problem of a system, whose Bode plot shows
 # "spires".
 workspace()
-include("../src/LME_Pack.jl")
-using LME_Pack
+include("../src/LargeMatrixEquations.jl")
+using LargeMatrixEquations
 
 
 A = speye(408,408); B = ones(408,1); C = ones(408,1)
