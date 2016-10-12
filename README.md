@@ -28,7 +28,7 @@ Proceedings of the 36th IEEE/ACM Design Automation Conference,
 New Orleans, LA, 1999.
 
 ###Download
-git clone https://github.com/garrettthomaskth/LargeMatrixEquations.git
+git clone https://github.com/garrettthomaskth/LargeMatrixEquations.jl.git
 
 ###Example
 ```julia
